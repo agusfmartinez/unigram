@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TUP Tracker — Seguimiento de Carrera</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0b1622;
+    --bg2: #111f30;
+    --bg3: #172537;
+    --card: #1a2d42;
+    --border: #243650;
+    --accent: #4ade80;
+    --accent2: #38bdf8;
+    --accent3: #f59e0b;
+    --accent4: #f87171;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  #root { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px; min-height: 100vh; background: var(--bg2);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: width .2s;
+  }
+  .sidebar.collapsed { width: 60px; }
+  .sidebar-logo { padding: 20px 16px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .logo-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0b1622; font-size: 14px; flex-shrink: 0; }
+  .logo-text { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; }
+  .logo-sub { font-size: 11px; color: var(--text3); }
+  .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 10px; border-radius: 8px; cursor: pointer; color: var(--text2); font-size: 13.5px; font-weight: 500; transition: all .15s; white-space: nowrap; border: 1px solid transparent; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: rgba(74,222,128,.12); color: var(--accent); border-color: rgba(74,222,128,.2); }
+  .nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+  .nav-label { overflow: hidden; }
+  .nav-section { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 12px 10px 4px; }
+  .sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border); }
+  .collapse-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text3); font-size: 13px; background: none; border: none; transition: all .15s; }
+  .collapse-btn:hover { background: var(--bg3); color: var(--text2); }
+
+  /* MAIN */
+  .main { margin-left: 240px; flex: 1; min-height: 100vh; transition: margin-left .2s; }
+  .main.sidebar-collapsed { margin-left: 60px; }
+  .page-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .content { padding: 28px 32px; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; font-weight: 600; }
+  .stat-val { font-size: 32px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(74,222,128,.15); color: #4ade80; }
+  .badge-blue { background: rgba(56,189,248,.15); color: #38bdf8; }
+  .badge-yellow { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .badge-red { background: rgba(248,113,113,.15); color: #f87171; }
+  .badge-gray { background: rgba(100,116,139,.15); color: #94a3b8; }
+  .badge-purple { background: rgba(167,139,250,.15); color: #a78bfa; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { background: var(--bg3); border-radius: 99px; height: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; padding: 10px 14px; color: var(--text3); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); font-weight: 600; background: var(--bg2); }
+  tbody tr { border-bottom: 1px solid rgba(36,54,80,.6); transition: background .1s; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+  tbody td { padding: 10px 14px; color: var(--text); vertical-align: middle; }
+  .code-badge { font-family: var(--mono); font-size: 11px; color: var(--text3); background: var(--bg3); padding: 2px 6px; border-radius: 4px; }
+
+  /* UPLOAD ZONE */
+  .drop-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all .2s; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(74,222,128,.04); }
+  .drop-zone-icon { font-size: 40px; margin-bottom: 12px; }
+  .drop-zone-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .drop-zone-sub { font-size: 13px; color: var(--text3); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: var(--sans); }
+  .btn-primary { background: var(--accent); color: #0b1622; }
+  .btn-primary:hover { background: #6ee7a0; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-outline:hover { background: var(--bg3); color: var(--text); }
+  .btn-danger { background: rgba(248,113,113,.15); color: var(--accent4); border: 1px solid rgba(248,113,113,.3); }
+  .btn-danger:hover { background: rgba(248,113,113,.25); }
+
+  /* HORARIOS GRID */
+  .schedule-grid { display: grid; gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; }
+  .sched-header { background: var(--bg3); padding: 8px 12px; font-size: 11px; font-weight: 700; text-align: center; color: var(--text3); text-transform: uppercase; }
+  .sched-time { background: var(--bg3); padding: 8px 12px; font-size: 11px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+  .sched-cell { background: var(--card); padding: 4px; min-height: 48px; }
+  .sched-event { padding: 4px 6px; border-radius: 6px; font-size: 11px; line-height: 1.3; border-left: 3px solid; }
+
+  /* CORRELATIVIDADES */
+  .correla-wrap { overflow: auto; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); }
+  .correla-svg { display: block; }
+
+  /* TIMELINE */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item { display: flex; gap: 16px; }
+  .timeline-line { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 5px; }
+  .timeline-connector { width: 2px; flex: 1; background: var(--border); margin: 4px 0; min-height: 20px; }
+  .timeline-content { padding-bottom: 20px; flex: 1; }
+
+  /* NOTA BADGE */
+  .nota-circle { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 2px; background: var(--bg3); border-radius: 10px; padding: 3px; margin-bottom: 20px; }
+  .tab { padding: 7px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text2); border: none; background: none; transition: all .15s; font-family: var(--sans); }
+  .tab.active { background: var(--card); color: var(--text); }
+
+  /* ALERT */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; }
+  .alert-info { background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.2); color: var(--accent2); }
+  .alert-success { background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.2); color: var(--accent); }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .content { padding: 16px; }
+  }
+  
+  /* SCROLL */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* GRAPH tooltip */
+  .graph-tooltip { position: fixed; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12px; pointer-events: none; z-index: 9999; max-width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+
+  /* Search */
+  .search-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-family: var(--sans); outline: none; width: 100%; }
+  .search-input:focus { border-color: var(--accent2); }
+  
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+  .empty-state-text { font-size: 13px; line-height: 1.6; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: var(--bg3); color: var(--text2); }
+
+  input[type="file"] { display: none; }
+  .fl { display: flex; }
+  .aic { align-items: center; }
+  .jcsb { justify-content: space-between; }
+  .gap8 { gap: 8px; }
+  .gap12 { gap: 12px; }
+  .gap16 { gap: 16px; }
+  .gap20 { gap: 20px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb12 { margin-bottom: 12px; }
+  .mb16 { margin-bottom: 16px; }
+  .mb20 { margin-bottom: 20px; }
+  .mb24 { margin-bottom: 24px; }
+  .mt8 { margin-top: 8px; }
+  .mt16 { margin-top: 16px; }
+  .fw6 { font-weight: 600; }
+  .fs13 { font-size: 13px; }
+  .fs12 { font-size: 12px; }
+  .c2 { color: var(--text2); }
+  .c3 { color: var(--text3); }
+  .ca { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ─── CORRELATIVIDADES TUP UNAHUR (hardcoded por plan de estudios) ───────────
+const CORRELATIVIDADES = {
+  '789': [], // Intro a lógica
+  '788': [], // Matemática I
+  '790': [], // Org. Computadoras I
+  '004': [], // Nuevos entornos y lenguajes
+  '791': [], // Taller lenguajes marcado
+  '792': ['789'], // Prog. estructurada requiere Intro lógica
+  '793': ['788'], // Matemática II requiere Matemática I
+  '030': [], // Inglés I
+  '754': ['789','792'], // Bases de datos requiere lógica + prog estructurada
+  '753': ['789','792'], // Prog objetos I
+  '752': ['789','792','788'], // Estructuras de datos
+  '765': ['753'], // Prog objetos II
+  '043': ['030'], // Inglés II
+  '758': ['765','754'], // Construcción interfaces
+  '759': ['754','752'], // Estrategias persistencia
+  '760': ['753','752'], // Elementos ing. software
+};
+
+// ─── PARSE PLAN DE ESTUDIOS ───────────────────────────────────────────────────
+function parsePlanEstudios(ws) {
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const materias = [];
+  let currentModulo = '';
+  let currentAnio = null;
+  let inDataSection = false;
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const cell0 = String(row[0] || '').trim();
+    
+    // Header row
+    if (cell0 === 'Alumno:' || cell0.startsWith('Alumno:')) {
+      const alumnoStr = cell0;
+      const legajoStr = String(data[i+1]?.[0] || '');
+      const propStr = String(data[i+2]?.[0] || '');
+      // stored separately
+    }
+
+    if (cell0.startsWith('MÓD') || cell0.toUpperCase().startsWith('MÓDULO') || cell0.toUpperCase().includes('MÓDULO:')) {
+      currentModulo = cell0.replace(/MÓDULO:|Módulo:/gi, '').replace(/MóDULO:/gi,'').trim();
+      const anioMatch = currentModulo.match(/PRIMER|SEGUNDO|TERCER/i);
+      if (anioMatch) {
+        const anioMap = { PRIMER: 1, SEGUNDO: 2, TERCER: 3 };
+        currentAnio = anioMap[anioMatch[0].toUpperCase()] || currentAnio;
+      }
+      inDataSection = false;
+    }
+    if (cell0.toUpperCase().startsWith('MATERIA GEN')) {
+      currentModulo = cell0.replace(/MATERIA GENéRICA:|MATERIA GENÉRICA:/gi,'').trim();
+      inDataSection = false;
+    }
+
+    // Detect header row of a section
+    if (cell0 === 'Actividad') { inDataSection = true; continue; }
+
+    if (inDataSection && cell0 && !cell0.startsWith('(') && !cell0.startsWith('Alumno')) {
+      const nombre = cell0;
+      const tipo = String(row[1] || '');
+      const anioCol = row[2] ? parseInt(row[2]) : null;
+      const periodo = String(row[3] || '');
+      const notaStr = String(row[4] || '').trim();
+      const origen = String(row[5] || '').trim();
+      const creditos = parseFloat(row[6]) || 0;
+
+      // Extract código from nombre (número en paréntesis al final)
+      const codigoMatch = nombre.match(/\(([^)]+)\)$/);
+      const codigo = codigoMatch ? codigoMatch[1] : '';
+      const nombreLimpio = nombre.replace(/\([^)]+\)$/, '').trim();
+
+      // Determine estado
+      let estado = 'pendiente';
+      if (notaStr.toLowerCase().includes('en curso') || origen.toLowerCase().includes('en curso')) {
+        estado = 'en_curso';
+      } else if (notaStr.includes('Promocionado') || origen === 'Promoción') {
+        estado = 'aprobado';
+      } else if (notaStr === 'C (Aprobado)' || origen === 'Regularidad') {
+        estado = 'aprobado';
+      } else if (notaStr && notaStr !== '') {
+        estado = 'aprobado';
+      }
+
+      // Extract nota number
+      const notaNum = notaStr.match(/^(\d+)/);
+      const nota = notaNum ? parseInt(notaNum[1]) : (notaStr.includes('C') ? 'C' : null);
+
+      // Detect if it's a credit/generic activity
+      const esCredito = nombreLimpio.startsWith('AU_') || nombreLimpio.startsWith('CR') || 
+                        nombreLimpio.startsWith('Elec_') || nombreLimpio.startsWith('COMP_') ||
+                        codigo.startsWith('CR') || codigo.startsWith('AU') || codigo.startsWith('CR_');
+      
+      const esPrincipal = !esCredito && tipo === 'Materia' && (anioCol || currentAnio) && parseInt(anioCol || currentAnio) <= 3 && !codigo.startsWith('INF');
+
+      materias.push({
+        id: codigo || `${i}`,
+        codigo,
+        nombre: nombreLimpio,
+        tipo: esCredito ? 'credito' : 'materia',
+        anio: anioCol || currentAnio,
+        periodo,
+        nota,
+        estado,
+        origen,
+        creditos,
+        modulo: currentModulo,
+        esPrincipal,
+      });
+    }
+  }
+  return materias;
+}
+
+// ─── PARSE HISTORIA ACADEMICA ─────────────────────────────────────────────────
+function parseHistoriaAcademica(ws) {
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const historia = [];
+  let started = false;
+  
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (String(row[0]).trim() === 'Actividad') { started = true; continue; }
+    if (!started) continue;
+    const actividad = String(row[0] || '').trim();
+    if (!actividad) continue;
+    
+    const fecha = String(row[1] || '').trim();
+    const tipo = String(row[2] || '').trim();
+    const nota = String(row[3] || '').trim();
+    const resultado = String(row[4] || '').trim();
+    
+    const codigoMatch = actividad.match(/\(([^)]+)\)$/);
+    const codigo = codigoMatch ? codigoMatch[1] : '';
+    const nombre = actividad.replace(/\([^)]+\)$/, '').trim();
+    const notaNum = nota.match(/^(\d+)/);
+    
+    historia.push({
+      actividad, nombre, codigo,
+      fecha, tipo, nota,
+      notaNum: notaNum ? parseInt(notaNum[1]) : (nota === 'C' ? null : null),
+      resultado
+    });
+  }
+  return historia;
+}
+
+// ─── PARSE OFERTA DE MATERIAS ─────────────────────────────────────────────────
+function parseOferta(ws) {
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const oferta = [];
+  let headers = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (i === 0 || (headers.length === 0 && row.some(c => String(c).toLowerCase().includes('materia') || String(c).toLowerCase().includes('dia')))) {
+      headers = row.map(c => String(c).trim().toLowerCase());
+      continue;
+    }
+    if (row.every(c => !c)) continue;
+    
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = String(row[idx] || '').trim(); });
+    
+    const nombre = obj['materia'] || obj['nombre'] || obj['actividad'] || String(row[0] || '').trim();
+    if (!nombre) continue;
+    
+    oferta.push({
+      nombre,
+      codigo: obj['codigo'] || obj['cód'] || obj['cod'] || '',
+      dia: obj['dia'] || obj['día'] || obj['dias'] || obj['días'] || '',
+      horaInicio: obj['hora inicio'] || obj['inicio'] || obj['hora_inicio'] || '',
+      horaFin: obj['hora fin'] || obj['fin'] || obj['hora_fin'] || '',
+      modalidad: obj['modalidad'] || '',
+      docente: obj['docente'] || obj['profesor'] || '',
+      anio: obj['año'] || obj['anio'] || '',
+      cuatrimestre: obj['cuatrimestre'] || obj['cuat'] || '',
+      raw: obj,
+    });
+  }
+  return oferta;
+}
+
+// ─── NOTA COLOR ───────────────────────────────────────────────────────────────
+function getNotaColor(nota) {
+  if (nota === null || nota === undefined) return '#64748b';
+  if (typeof nota === 'string') return '#f59e0b';
+  if (nota >= 9) return '#4ade80';
+  if (nota >= 7) return '#38bdf8';
+  if (nota >= 6) return '#f59e0b';
+  return '#f87171';
+}
+
+function getEstadoBadge(estado) {
+  const map = {
+    aprobado: { cls: 'badge-green', label: '✓ Aprobado' },
+    en_curso: { cls: 'badge-blue', label: '● En curso' },
+    pendiente: { cls: 'badge-gray', label: '○ Pendiente' },
+  };
+  return map[estado] || map.pendiente;
+}
+
+// ─── COMPONENTS ──────────────────────────────────────────────────────────────
+
+function EmptyState({ icon, title, text, action }) {
+  return (
+    <div className="empty-state">
+      <div className="empty-state-icon">{icon}</div>
+      <div className="empty-state-title">{title}</div>
+      <p className="empty-state-text">{text}</p>
+      {action && <div style={{marginTop:20}}>{action}</div>}
+    </div>
+  );
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard({ materias, historia, alumno }) {
+  const principales = materias.filter(m => m.esPrincipal);
+  const aprobadas = principales.filter(m => m.estado === 'aprobado');
+  const enCurso = principales.filter(m => m.estado === 'en_curso');
+  const pendientes = principales.filter(m => m.estado === 'pendiente');
+  
+  const notasAprobadas = historia.filter(h => h.notaNum && h.tipo !== 'En curso');
+  const promedio = notasAprobadas.length > 0
+    ? (notasAprobadas.reduce((s,h) => s + h.notaNum, 0) / notasAprobadas.length).toFixed(2)
+    : '—';
+  
+  const pct = principales.length > 0 ? Math.round((aprobadas.length / principales.length) * 100) : 0;
+
+  const porAnio = [1,2,3].map(a => {
+    const m = principales.filter(x => x.anio === a);
+    const ap = m.filter(x => x.estado === 'aprobado');
+    return { anio: a, total: m.length, aprobadas: ap.length };
+  });
+
+  const notasDist = [10,9,8,7,6].map(n => ({
+    nota: n,
+    count: notasAprobadas.filter(h => h.notaNum === n).length
+  }));
+
+  return (
+    <div>
+      {alumno && (
+        <div className="alert alert-info mb24">
+          👤 <strong>{alumno.nombre}</strong> — Legajo: {alumno.legajo} — {alumno.propuesta}
+        </div>
+      )}
+
+      <div className="grid-4 mb24">
+        <div className="card">
+          <div className="card-title">Materias aprobadas</div>
+          <div className="stat-val ca">{aprobadas.length}</div>
+          <div className="stat-sub">de {principales.length} del plan</div>
+        </div>
+        <div className="card">
+          <div className="card-title">En cursada</div>
+          <div className="stat-val" style={{color:'#38bdf8'}}>{enCurso.length}</div>
+          <div className="stat-sub">materias este cuatrimestre</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Promedio general</div>
+          <div className="stat-val" style={{color: getNotaColor(parseFloat(promedio))}}>{promedio}</div>
+          <div className="stat-sub">sobre {notasAprobadas.length} calificaciones</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Avance de carrera</div>
+          <div className="stat-val">{pct}<span style={{fontSize:16}}>%</span></div>
+          <div className="stat-sub mt8">
+            <div className="progress-wrap">
+              <div className="progress-fill" style={{width: pct+'%'}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-2 mb24">
+        <div className="card">
+          <div className="card-title mb16">Avance por año</div>
+          {porAnio.map(a => (
+            <div key={a.anio} className="mb16">
+              <div className="fl aic jcsb mb8 fs13">
+                <span><strong>{a.anio}° año</strong></span>
+                <span className="c3">{a.aprobadas}/{a.total}</span>
+              </div>
+              <div className="progress-wrap">
+                <div className="progress-fill" style={{
+                  width: a.total > 0 ? (a.aprobadas/a.total*100)+'%' : '0%',
+                  background: a.anio === 1 ? 'linear-gradient(90deg,#4ade80,#22d3ee)' :
+                               a.anio === 2 ? 'linear-gradient(90deg,#38bdf8,#818cf8)' :
+                               'linear-gradient(90deg,#f59e0b,#f87171)'
+                }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card">
+          <div className="card-title mb16">Distribución de notas</div>
+          {notasDist.map(d => (
+            <div key={d.nota} className="fl aic gap8 mb12">
+              <div style={{width:20, fontSize:13, fontWeight:600, color: getNotaColor(d.nota), textAlign:'right'}}>{d.nota}</div>
+              <div style={{flex:1, background:'var(--bg3)', borderRadius:4, height:20, overflow:'hidden'}}>
+                <div style={{
+                  height:'100%', borderRadius:4,
+                  width: notasAprobadas.length > 0 ? Math.max(d.count/notasAprobadas.length*100,0)+'%' : '0%',
+                  background: getNotaColor(d.nota), opacity:.8,
+                  transition: 'width .6s'
+                }}></div>
+              </div>
+              <div style={{width:24, fontSize:12, color:'var(--text3)'}}>{d.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {enCurso.length > 0 && (
+        <div className="card mb24">
+          <div className="card-title mb12">📚 Materias en curso este cuatrimestre</div>
+          <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
+            {enCurso.map(m => (
+              <span key={m.id} className="badge badge-blue" style={{fontSize:12, padding:'5px 10px'}}>
+                {m.nombre}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendientes.length > 0 && (
+        <div className="card">
+          <div className="card-title mb12">⏳ Próximas materias a cursar</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Materia</th>
+                  <th>Código</th>
+                  <th>Año</th>
+                  <th>Correlativas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendientes.slice(0,8).map(m => {
+                  const corrs = CORRELATIVIDADES[m.codigo] || [];
+                  const corrsOk = corrs.every(c => {
+                    const mat = materias.find(x => x.codigo === c);
+                    return mat && mat.estado === 'aprobado';
+                  });
+                  return (
+                    <tr key={m.id}>
+                      <td>{m.nombre}</td>
+                      <td><span className="code-badge">{m.codigo}</span></td>
+                      <td><span className="c3">{m.anio}°</span></td>
+                      <td>
+                        {corrs.length === 0
+                          ? <span className="badge badge-green" style={{fontSize:11}}>Sin correlativas</span>
+                          : corrsOk
+                            ? <span className="badge badge-green" style={{fontSize:11}}>✓ Habilitada</span>
+                            : <span className="badge badge-yellow" style={{fontSize:11}}>Correlativas pendientes</span>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PLAN DE ESTUDIOS ─────────────────────────────────────────────────────────
+function PlanEstudios({ materias }) {
+  const [filtro, setFiltro] = useState('todas');
+  const [busqueda, setBusqueda] = useState('');
+
+  const principales = materias.filter(m => m.esPrincipal);
+  const filtered = principales.filter(m => {
+    const matchFiltro = filtro === 'todas' || m.estado === filtro;
+    const matchBusqueda = !busqueda || m.nombre.toLowerCase().includes(busqueda.toLowerCase());
+    return matchFiltro && matchBusqueda;
+  });
+
+  const porAnio = [1,2,3].map(a => ({
+    anio: a,
+    mats: filtered.filter(m => m.anio === a)
+  })).filter(a => a.mats.length > 0);
+
+  return (
+    <div>
+      <div className="fl aic gap12 mb20" style={{flexWrap:'wrap'}}>
+        <div className="tabs" style={{marginBottom:0}}>
+          {[
+            {k:'todas',l:'Todas'},
+            {k:'aprobado',l:'Aprobadas'},
+            {k:'en_curso',l:'En curso'},
+            {k:'pendiente',l:'Pendientes'},
+          ].map(t => (
+            <button key={t.k} className={`tab${filtro===t.k?' active':''}`} onClick={() => setFiltro(t.k)}>
+              {t.l}
+            </button>
+          ))}
+        </div>
+        <input
+          className="search-input"
+          style={{maxWidth:240}}
+          placeholder="🔍 Buscar materia..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+        />
+      </div>
+
+      {porAnio.map(({anio, mats}) => (
+        <div key={anio} className="card mb16">
+          <div className="fl aic jcsb mb16">
+            <div className="fw6 fs13">{anio}° Año</div>
+            <div className="fl gap8">
+              <span className="badge badge-green">{mats.filter(m=>m.estado==='aprobado').length} aprobadas</span>
+              <span className="badge badge-blue">{mats.filter(m=>m.estado==='en_curso').length} en curso</span>
+              <span className="badge badge-gray">{mats.filter(m=>m.estado==='pendiente').length} pendientes</span>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Materia</th>
+                  <th>Código</th>
+                  <th>Estado</th>
+                  <th>Nota</th>
+                  <th>Correlativas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mats.map(m => {
+                  const badge = getEstadoBadge(m.estado);
+                  const corrs = CORRELATIVIDADES[m.codigo] || [];
+                  return (
+                    <tr key={m.id}>
+                      <td style={{fontWeight:500}}>{m.nombre}</td>
+                      <td><span className="code-badge">{m.codigo}</span></td>
+                      <td><span className={`badge ${badge.cls}`}>{badge.label}</span></td>
+                      <td>
+                        {m.nota !== null && m.nota !== undefined
+                          ? <div style={{
+                              display:'inline-flex', alignItems:'center', justifyContent:'center',
+                              width:28, height:28, borderRadius:'50%', fontWeight:700, fontSize:12,
+                              background: getNotaColor(m.nota)+'22',
+                              color: getNotaColor(m.nota), border:`1px solid ${getNotaColor(m.nota)}44`
+                            }}>{m.nota}</div>
+                          : <span className="c3">—</span>
+                        }
+                      </td>
+                      <td>
+                        {corrs.length === 0
+                          ? <span className="c3 fs12">—</span>
+                          : <div style={{display:'flex', flexWrap:'wrap', gap:4}}>
+                              {corrs.map(c => {
+                                const mat = materias.find(x => x.codigo === c);
+                                return (
+                                  <span key={c} style={{
+                                    fontSize:10, padding:'2px 6px', borderRadius:4, fontFamily:'var(--mono)',
+                                    background: mat?.estado==='aprobado' ? 'rgba(74,222,128,.15)' : 'rgba(245,158,11,.15)',
+                                    color: mat?.estado==='aprobado' ? '#4ade80' : '#f59e0b',
+                                  }}>{c}</span>
+                                );
+                              })}
+                            </div>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+
+      {filtered.length === 0 && (
+        <EmptyState icon="🔍" title="Sin resultados" text="No hay materias que coincidan con el filtro." />
+      )}
+    </div>
+  );
+}
+
+// ─── HISTORIA ACADÉMICA ───────────────────────────────────────────────────────
+function HistoriaAcademica({ historia }) {
+  const aprobadas = historia.filter(h => h.notaNum && (h.tipo === 'Promocion' || h.resultado === 'Aprobado' || h.resultado === 'Promocionado'));
+  const unicas = [];
+  const seen = new Set();
+  aprobadas.forEach(h => {
+    if (!seen.has(h.codigo)) {
+      seen.add(h.codigo);
+      unicas.push(h);
+    }
+  });
+  unicas.sort((a,b) => {
+    const fa = a.fecha.split('/').reverse().join('');
+    const fb = b.fecha.split('/').reverse().join('');
+    return fb.localeCompare(fa);
+  });
+
+  const promedio = unicas.length > 0
+    ? (unicas.reduce((s,h) => s + h.notaNum, 0) / unicas.length).toFixed(2)
+    : '—';
+
+  return (
+    <div>
+      <div className="grid-3 mb24">
+        <div className="card">
+          <div className="card-title">Materias aprobadas</div>
+          <div className="stat-val ca">{unicas.length}</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Promedio</div>
+          <div className="stat-val" style={{color: getNotaColor(parseFloat(promedio))}}>{promedio}</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Mejor nota</div>
+          <div className="stat-val ca">
+            {unicas.length > 0 ? Math.max(...unicas.map(u => u.notaNum)) : '—'}
+          </div>
+        </div>
+      </div>
+
+      {unicas.length === 0 ? (
+        <EmptyState icon="📋" title="Sin historial" text="Importá tu historia académica desde el SIU Guaraní." />
+      ) : (
+        <div className="card">
+          <div className="card-title mb16">Timeline de aprobaciones</div>
+          <div className="timeline">
+            {unicas.map((h, i) => (
+              <div key={i} className="timeline-item">
+                <div className="timeline-line">
+                  <div className="timeline-dot" style={{background: getNotaColor(h.notaNum)}}></div>
+                  {i < unicas.length-1 && <div className="timeline-connector"></div>}
+                </div>
+                <div className="timeline-content">
+                  <div className="fl aic gap12">
+                    <div style={{
+                      width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center',
+                      justifyContent:'center', fontWeight:700, fontSize:14, flexShrink:0,
+                      background: getNotaColor(h.notaNum)+'22',
+                      color: getNotaColor(h.notaNum)
+                    }}>{h.notaNum}</div>
+                    <div>
+                      <div style={{fontWeight:600, fontSize:14}}>{h.nombre}</div>
+                      <div className="c3 fs12">{h.fecha} · <span className="tag">{h.tipo}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CORRELATIVIDADES (SVG Graph) ─────────────────────────────────────────────
+function Correlatividades({ materias }) {
+  const [tooltip, setTooltip] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+
+  const nodes = useMemo(() => {
+    const principales = materias.filter(m => m.esPrincipal && CORRELATIVIDADES.hasOwnProperty(m.codigo));
+    
+    // Layout: columnas por año
+    const layout = [];
+    const porAnio = {1: [], 2: [], 3: []};
+    principales.forEach(m => {
+      const a = m.anio || 1;
+      if (porAnio[a]) porAnio[a].push(m);
+    });
+    
+    const colX = {1: 120, 2: 420, 3: 720};
+    const nodeMap = {};
+    
+    Object.entries(porAnio).forEach(([anio, mats]) => {
+      const x = colX[anio];
+      const rowH = 80;
+      const startY = 60;
+      mats.forEach((m, i) => {
+        const node = {
+          ...m,
+          x, y: startY + i * rowH,
+          width: 160, height: 50
+        };
+        nodeMap[m.codigo] = node;
+        layout.push(node);
+      });
+    });
+    return { nodes: layout, nodeMap };
+  }, [materias]);
+
+  const { nodes: nodeList, nodeMap } = nodes;
+  
+  const edges = useMemo(() => {
+    const result = [];
+    Object.entries(CORRELATIVIDADES).forEach(([target, sources]) => {
+      sources.forEach(src => {
+        const from = nodeMap[src];
+        const to = nodeMap[target];
+        if (from && to) {
+          result.push({ from, to, src, target });
+        }
+      });
+    });
+    return result;
+  }, [nodeMap]);
+
+  const svgH = Math.max(400, Math.max(...nodeList.map(n => n.y + n.height + 60)));
+  const svgW = 900;
+
+  const highlighted = selectedNode ? new Set([
+    selectedNode,
+    ...(CORRELATIVIDADES[selectedNode] || []),
+    ...Object.entries(CORRELATIVIDADES)
+      .filter(([t, srcs]) => srcs.includes(selectedNode))
+      .map(([t]) => t)
+  ]) : null;
+
+  return (
+    <div>
+      <div className="alert alert-info mb20">
+        💡 Las correlatividades mostradas son estimadas según el plan de estudios. Hacé click en una materia para resaltarla.
+      </div>
+      <div className="correla-wrap">
+        <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} className="correla-svg">
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#4ade80" opacity=".6"/>
+            </marker>
+            <marker id="arrow-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#243650"/>
+            </marker>
+          </defs>
+          
+          {/* Año labels */}
+          {[{x:120,label:'1° Año'},{x:420,label:'2° Año'},{x:720,label:'3° Año'}].map(col => (
+            <g key={col.x}>
+              <text x={col.x} y={28} textAnchor="middle" fontSize="12" fill="#64748b" fontWeight="600" fontFamily="Inter">
+                {col.label}
+              </text>
+              <line x1={col.x-80} y1={38} x2={col.x+80} y2={38} stroke="#243650" strokeWidth="1"/>
+            </g>
+          ))}
+
+          {/* Edges */}
+          {edges.map((e, i) => {
+            const isHighlighted = highlighted && (highlighted.has(e.src) || highlighted.has(e.target));
+            const isDimmed = highlighted && !isHighlighted;
+            return (
+              <line
+                key={i}
+                x1={e.from.x + e.from.width/2}
+                y1={e.from.y + e.from.height/2}
+                x2={e.to.x - 8}
+                y2={e.to.y + e.to.height/2}
+                stroke={isDimmed ? '#243650' : '#4ade80'}
+                strokeWidth={isHighlighted ? 2 : 1}
+                strokeOpacity={isDimmed ? 0.3 : (highlighted ? 0.9 : 0.4)}
+                markerEnd={isDimmed ? 'url(#arrow-dim)' : 'url(#arrow)'}
+              />
+            );
+          })}
+
+          {/* Nodes */}
+          {nodeList.map(n => {
+            const isDimmed = highlighted && !highlighted.has(n.codigo);
+            const isSelected = selectedNode === n.codigo;
+            const stateColor = n.estado === 'aprobado' ? '#4ade80' : n.estado === 'en_curso' ? '#38bdf8' : '#64748b';
+            return (
+              <g
+                key={n.id}
+                style={{cursor:'pointer'}}
+                onClick={() => setSelectedNode(selectedNode === n.codigo ? null : n.codigo)}
+                onMouseEnter={e => setTooltip({ x: e.clientX, y: e.clientY, node: n })}
+                onMouseLeave={() => setTooltip(null)}
+              >
+                <rect
+                  x={n.x - n.width/2} y={n.y}
+                  width={n.width} height={n.height}
+                  rx={8}
+                  fill={isSelected ? stateColor+'33' : isDimmed ? '#111f30' : '#1a2d42'}
+                  stroke={isSelected ? stateColor : isDimmed ? '#1a2d42' : stateColor}
+                  strokeWidth={isSelected ? 2 : 1}
+                  opacity={isDimmed ? 0.3 : 1}
+                />
+                <text
+                  x={n.x} y={n.y + 18}
+                  textAnchor="middle" fontSize="11" fontWeight="600"
+                  fill={isDimmed ? '#243650' : '#e2e8f0'}
+                  fontFamily="Inter"
+                >
+                  {n.nombre.length > 22 ? n.nombre.slice(0,22)+'…' : n.nombre}
+                </text>
+                <text
+                  x={n.x} y={n.y + 33}
+                  textAnchor="middle" fontSize="10"
+                  fill={isDimmed ? '#243650' : stateColor}
+                  fontFamily="JetBrains Mono, monospace"
+                >
+                  ({n.codigo})
+                </text>
+                <circle
+                  cx={n.x + n.width/2 - 8}
+                  cy={n.y + n.height/2}
+                  r={4}
+                  fill={stateColor}
+                  opacity={isDimmed ? 0.3 : 0.9}
+                />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      
+      {tooltip && tooltip.node && (
+        <div className="graph-tooltip" style={{left: tooltip.x+12, top: tooltip.y-20}}>
+          <div style={{fontWeight:600, marginBottom:4}}>{tooltip.node.nombre}</div>
+          <div style={{color:'var(--text3)', fontSize:11, marginBottom:6}}>Código: {tooltip.node.codigo}</div>
+          <div style={{marginBottom:4}}>
+            <span className={`badge ${getEstadoBadge(tooltip.node.estado).cls}`} style={{fontSize:10}}>
+              {getEstadoBadge(tooltip.node.estado).label}
+            </span>
+          </div>
+          {(CORRELATIVIDADES[tooltip.node.codigo]||[]).length > 0 && (
+            <div style={{fontSize:11, color:'var(--text3)'}}>
+              Requiere: {(CORRELATIVIDADES[tooltip.node.codigo]||[]).join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="fl gap12 mt16" style={{flexWrap:'wrap'}}>
+        {[
+          {color:'#4ade80', label:'Aprobada'},
+          {color:'#38bdf8', label:'En curso'},
+          {color:'#64748b', label:'Pendiente'},
+        ].map(l => (
+          <div key={l.label} className="fl aic gap8 fs12 c2">
+            <div style={{width:12, height:12, borderRadius:3, background:l.color}}></div>
+            {l.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── OFERTA DE MATERIAS ───────────────────────────────────────────────────────
+const DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const COLORES_MATERIA = ['#4ade80','#38bdf8','#f59e0b','#a78bfa','#f87171','#34d399','#fb923c','#818cf8'];
+
+function Oferta({ oferta, materias }) {
+  const [view, setView] = useState('lista');
+  const [busqueda, setBusqueda] = useState('');
+  const [selected, setSelected] = useState(new Set());
+
+  const filtered = oferta.filter(m =>
+    !busqueda || m.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  // Assign colors to selected
+  const colorMap = useMemo(() => {
+    const map = {};
+    let ci = 0;
+    selected.forEach(n => { map[n] = COLORES_MATERIA[ci++ % COLORES_MATERIA.length]; });
+    return map;
+  }, [selected]);
+
+  const toggleSelect = n => {
+    setSelected(prev => {
+      const s = new Set(prev);
+      s.has(n) ? s.delete(n) : s.add(n);
+      return s;
+    });
+  };
+
+  if (oferta.length === 0) {
+    return (
+      <EmptyState
+        icon="📅"
+        title="Sin oferta académica cargada"
+        text="Importá el XLS de oferta de materias del cuatrimestre para ver los horarios y planificar tu inscripción."
+      />
+    );
+  }
+
+  // Build schedule grid
+  const HORAS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
+
+  const getEventosParaDiaHora = (dia, hora) => {
+    return oferta.filter(m => {
+      if (!selected.has(m.nombre)) return false;
+      const mDia = m.dia || '';
+      const hI = m.horaInicio || '';
+      return mDia.toLowerCase().includes(dia.toLowerCase()) && hI.startsWith(hora.slice(0,2));
+    });
+  };
+
+  return (
+    <div>
+      <div className="fl aic gap12 mb20" style={{flexWrap:'wrap'}}>
+        <div className="tabs" style={{marginBottom:0}}>
+          <button className={`tab${view==='lista'?' active':''}`} onClick={()=>setView('lista')}>Lista</button>
+          <button className={`tab${view==='horario'?' active':''}`} onClick={()=>setView('horario')}>Horario</button>
+        </div>
+        <input className="search-input" style={{maxWidth:240}} placeholder="🔍 Buscar materia..." value={busqueda} onChange={e=>setBusqueda(e.target.value)}/>
+        {selected.size > 0 && (
+          <button className="btn btn-outline" onClick={()=>setSelected(new Set())}>Limpiar selección ({selected.size})</button>
+        )}
+      </div>
+
+      {view === 'lista' && (
+        <div className="card">
+          <div className="card-title mb16">
+            Oferta de materias · {oferta.length} materias — seleccioná para ver en el horario
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Materia</th>
+                  <th>Día</th>
+                  <th>Horario</th>
+                  <th>Modalidad</th>
+                  <th>Docente</th>
+                  <th>Año</th>
+                  <th>Estado en tu plan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((m, i) => {
+                  const isSelected = selected.has(m.nombre);
+                  const matPlan = materias.find(x =>
+                    x.nombre.toLowerCase() === m.nombre.toLowerCase() ||
+                    (m.codigo && x.codigo === m.codigo)
+                  );
+                  const color = colorMap[m.nombre];
+                  return (
+                    <tr key={i} style={{background: isSelected ? 'rgba(74,222,128,.05)' : ''}}>
+                      <td>
+                        <div
+                          onClick={() => toggleSelect(m.nombre)}
+                          style={{
+                            width:16, height:16, borderRadius:4, cursor:'pointer',
+                            border: isSelected ? `2px solid ${color||'#4ade80'}` : '2px solid var(--border)',
+                            background: isSelected ? (color||'#4ade80')+'33' : 'transparent',
+                          }}
+                        ></div>
+                      </td>
+                      <td style={{fontWeight:isSelected?600:400}}>
+                        {isSelected && <span style={{width:8,height:8,borderRadius:'50%',background:color,display:'inline-block',marginRight:6}}></span>}
+                        {m.nombre}
+                      </td>
+                      <td>{m.dia || '—'}</td>
+                      <td style={{fontFamily:'var(--mono)', fontSize:12}}>{m.horaInicio} {m.horaFin ? '→'+m.horaFin : ''}</td>
+                      <td>{m.modalidad || '—'}</td>
+                      <td className="c2">{m.docente || '—'}</td>
+                      <td className="c3">{m.anio || '—'}</td>
+                      <td>
+                        {matPlan
+                          ? <span className={`badge ${getEstadoBadge(matPlan.estado).cls}`} style={{fontSize:10}}>
+                              {getEstadoBadge(matPlan.estado).label}
+                            </span>
+                          : <span className="c3 fs12">—</span>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {view === 'horario' && (
+        <div className="card">
+          <div className="card-title mb16">
+            Vista de horario · {selected.size === 0 ? 'Seleccioná materias en la lista para ver acá' : `${selected.size} materias seleccionadas`}
+          </div>
+          {selected.size === 0 ? (
+            <div className="alert alert-info">Seleccioná materias desde la lista para visualizar el horario semanal.</div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+              <table style={{borderCollapse:'collapse', width:'100%', fontSize:12}}>
+                <thead>
+                  <tr>
+                    <th style={{width:64, padding:'8px 12px', color:'var(--text3)', background:'var(--bg2)', borderBottom:'1px solid var(--border)'}}>Hora</th>
+                    {DIAS.map(d => (
+                      <th key={d} style={{padding:'8px 12px', color:'var(--text3)', background:'var(--bg2)', borderBottom:'1px solid var(--border)', textAlign:'center'}}>{d}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {HORAS.map(hora => (
+                    <tr key={hora} style={{borderBottom:'1px solid var(--border)22'}}>
+                      <td style={{padding:'6px 12px', color:'var(--text3)', fontFamily:'var(--mono)', fontSize:11, background:'var(--bg2)', verticalAlign:'top'}}>{hora}</td>
+                      {DIAS.map(dia => {
+                        const eventos = getEventosParaDiaHora(dia, hora);
+                        return (
+                          <td key={dia} style={{padding:3, verticalAlign:'top', minWidth:120, minHeight:40}}>
+                            {eventos.map((ev, i) => (
+                              <div key={i} className="sched-event" style={{
+                                borderLeftColor: colorMap[ev.nombre] || '#4ade80',
+                                background: (colorMap[ev.nombre]||'#4ade80')+'22',
+                                marginBottom:2
+                              }}>
+                                <div style={{fontWeight:600, color: colorMap[ev.nombre]||'#4ade80'}}>{ev.nombre.slice(0,24)}</div>
+                                {ev.horaInicio && <div style={{color:'var(--text3)'}}>{ev.horaInicio}{ev.horaFin?'–'+ev.horaFin:''}</div>}
+                              </div>
+                            ))}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── IMPORTAR DATOS ───────────────────────────────────────────────────────────
+function Importar({ onImport, hasData, onClear }) {
+  const [loading, setLoading] = useState({plan:false, historia:false, oferta:false});
+  const [done, setDone] = useState({plan:false, historia:false, oferta:false});
+  const planRef = useRef();
+  const histRef = useRef();
+  const ofertaRef = useRef();
+
+  const handleFile = async (file, tipo) => {
+    setLoading(prev => ({...prev, [tipo]: true}));
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        let parsed;
+        if (tipo === 'plan') parsed = parsePlanEstudios(ws);
+        else if (tipo === 'historia') parsed = parseHistoriaAcademica(ws);
+        else parsed = parseOferta(ws);
+        onImport(tipo, parsed, wb.Sheets[wb.SheetNames[0]], file.name);
+        setDone(prev => ({...prev, [tipo]: true}));
+      } catch(err) {
+        alert('Error al leer el archivo: ' + err.message);
+      }
+      setLoading(prev => ({...prev, [tipo]: false}));
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const DropZone = ({tipo, label, desc, icon, refEl}) => (
+    <div>
+      <div
+        className={`drop-zone${done[tipo]?' alert-success':''}`}
+        style={done[tipo] ? {border:'2px solid rgba(74,222,128,.4)', background:'rgba(74,222,128,.05)'} : {}}
+        onClick={() => refEl.current.click()}
+        onDragOver={e => { e.preventDefault(); }}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) handleFile(f, tipo); }}
+      >
+        <div className="drop-zone-icon">{done[tipo] ? '✅' : loading[tipo] ? '⏳' : icon}</div>
+        <div className="drop-zone-title">{done[tipo] ? `${label} cargado` : label}</div>
+        <div className="drop-zone-sub">{done[tipo] ? 'Archivo procesado correctamente · Clic para reemplazar' : desc}</div>
+        {!done[tipo] && !loading[tipo] && (
+          <button className="btn btn-outline mt8" style={{marginTop:12}} onClick={e=>{e.stopPropagation();refEl.current.click();}}>
+            Seleccionar archivo
+          </button>
+        )}
+        <input type="file" ref={refEl} accept=".xls,.xlsx"
+          onChange={e => { if(e.target.files[0]) handleFile(e.target.files[0], tipo); }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="alert alert-info mb24">
+        <strong>¿Cómo exportar desde SIU Guaraní?</strong><br/>
+        <span style={{color:'var(--text2)'}}>
+          1. Ingresá a tu SIU Guaraní → <em>Mis datos académicos</em><br/>
+          2. Plan de estudios → Exportar XLS<br/>
+          3. Historia académica → Exportar XLS<br/>
+          4. (Opcional) Pedile a tu facultad el archivo de oferta de materias del cuatrimestre
+        </span>
+      </div>
+
+      <div className="grid-3 mb24">
+        <DropZone tipo="plan" label="Plan de estudios" icon="📋"
+          desc="Exportá desde Guaraní → Plan de estudios → XLS"
+          refEl={planRef} />
+        <DropZone tipo="historia" label="Historia académica" icon="📊"
+          desc="Exportá desde Guaraní → Historia académica → XLS"
+          refEl={histRef} />
+        <DropZone tipo="oferta" label="Oferta de materias" icon="📅"
+          desc="Archivo XLS con la oferta del cuatrimestre"
+          refEl={ofertaRef} />
+      </div>
+
+      {hasData && (
+        <div className="fl aic gap12">
+          <button className="btn btn-danger" onClick={onClear}>
+            🗑️ Borrar todos los datos
+          </button>
+          <span className="c3 fs12">Esto eliminará todos los datos guardados localmente.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+const NAV = [
+  { id:'dashboard', icon:'🏠', label:'Dashboard', section:'principal' },
+  { id:'plan', icon:'📋', label:'Plan de Estudios', section:'principal' },
+  { id:'historia', icon:'📊', label:'Historia Académica', section:'principal' },
+  { id:'correlatividades', icon:'🕸️', label:'Correlatividades', section:'principal' },
+  { id:'oferta', icon:'📅', label:'Oferta de Materias', section:'herramientas' },
+  { id:'importar', icon:'⬆️', label:'Importar datos', section:'herramientas' },
+];
+
+const PAGE_META = {
+  dashboard: { title: 'Dashboard', sub: 'Resumen general de tu carrera' },
+  plan: { title: 'Plan de Estudios', sub: 'Todas las materias del plan' },
+  historia: { title: 'Historia Académica', sub: 'Tus aprobaciones y notas' },
+  correlatividades: { title: 'Correlatividades', sub: 'Mapa de dependencias entre materias' },
+  oferta: { title: 'Oferta de Materias', sub: 'Materias disponibles este cuatrimestre' },
+  importar: { title: 'Importar Datos', sub: 'Cargá tus archivos del SIU Guaraní' },
+};
+
+function App() {
+  const [page, setPage] = useState('importar');
+  const [collapsed, setCollapsed] = useState(false);
+  const [materias, setMaterias] = useState([]);
+  const [historia, setHistoria] = useState([]);
+  const [oferta, setOferta] = useState([]);
+  const [alumno, setAlumno] = useState(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const m = localStorage.getItem('tup_materias');
+      const h = localStorage.getItem('tup_historia');
+      const o = localStorage.getItem('tup_oferta');
+      const a = localStorage.getItem('tup_alumno');
+      if (m) { setMaterias(JSON.parse(m)); setPage('dashboard'); }
+      if (h) setHistoria(JSON.parse(h));
+      if (o) setOferta(JSON.parse(o));
+      if (a) setAlumno(JSON.parse(a));
+    } catch(e) {}
+  }, []);
+
+  const handleImport = (tipo, data, ws, filename) => {
+    if (tipo === 'plan') {
+      // Extract alumno info from raw data
+      const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      const alumnoRow = rawData.find(r => String(r[0]).startsWith('Alumno:'));
+      const legajoRow = rawData.find(r => String(r[0]).startsWith('Legajo:'));
+      const propRow = rawData.find(r => String(r[0]).startsWith('Propuesta:'));
+      if (alumnoRow) {
+        const a = {
+          nombre: String(alumnoRow[0]).replace('Alumno:','').trim(),
+          legajo: legajoRow ? String(legajoRow[0]).replace('Legajo:','').trim() : '',
+          propuesta: propRow ? String(propRow[0]).replace('Propuesta:','').trim().replace(/^\(\d+\)\s*/,'') : '',
+        };
+        setAlumno(a);
+        localStorage.setItem('tup_alumno', JSON.stringify(a));
+      }
+      setMaterias(data);
+      localStorage.setItem('tup_materias', JSON.stringify(data));
+      // Also cross with historia if exists
+      setPage('dashboard');
+    } else if (tipo === 'historia') {
+      setHistoria(data);
+      localStorage.setItem('tup_historia', JSON.stringify(data));
+      // Merge estados from historia into materias
+      setMaterias(prev => {
+        const updated = prev.map(m => {
+          const entry = data.find(h =>
+            h.codigo === m.codigo &&
+            (h.resultado === 'Promocionado' || h.resultado === 'Aprobado')
+          );
+          if (entry) {
+            return { ...m, estado: 'aprobado', nota: entry.notaNum || m.nota };
+          }
+          const enCurso = data.find(h => h.codigo === m.codigo && h.tipo === 'En curso');
+          if (enCurso) return { ...m, estado: 'en_curso' };
+          return m;
+        });
+        localStorage.setItem('tup_materias', JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      setOferta(data);
+      localStorage.setItem('tup_oferta', JSON.stringify(data));
+    }
+  };
+
+  const handleClear = () => {
+    if (!confirm('¿Borrar todos los datos?')) return;
+    localStorage.removeItem('tup_materias');
+    localStorage.removeItem('tup_historia');
+    localStorage.removeItem('tup_oferta');
+    localStorage.removeItem('tup_alumno');
+    setMaterias([]); setHistoria([]); setOferta([]); setAlumno(null);
+    setPage('importar');
+  };
+
+  const hasData = materias.length > 0 || historia.length > 0;
+  const meta = PAGE_META[page];
+  const sections = [...new Set(NAV.map(n => n.section))];
+
+  return (
+    <>
+      <div className={`sidebar${collapsed?' collapsed':''}`}>
+        <div className="sidebar-logo">
+          <div className="logo-icon">TUP</div>
+          {!collapsed && (
+            <div>
+              <div className="logo-text">TUP Tracker</div>
+              <div className="logo-sub">{alumno ? alumno.nombre.split(' ')[0] : 'Sin datos'}</div>
+            </div>
+          )}
+        </div>
+        <div className="sidebar-nav">
+          {sections.map(sec => (
+            <React.Fragment key={sec}>
+              {!collapsed && (
+                <div className="nav-section">
+                  {sec === 'principal' ? 'Carrera' : 'Herramientas'}
+                </div>
+              )}
+              {NAV.filter(n => n.section === sec).map(n => (
+                <div
+                  key={n.id}
+                  className={`nav-item${page===n.id?' active':''}`}
+                  onClick={() => setPage(n.id)}
+                  title={collapsed ? n.label : ''}
+                >
+                  <span className="nav-icon">{n.icon}</span>
+                  {!collapsed && <span className="nav-label">{n.label}</span>}
+                </div>
+              ))}
+            </React.Fragment>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <button className="collapse-btn" onClick={() => setCollapsed(c=>!c)}>
+            <span className="nav-icon">{collapsed ? '→' : '←'}</span>
+            {!collapsed && 'Colapsar'}
+          </button>
+        </div>
+      </div>
+
+      <div className={`main${collapsed?' sidebar-collapsed':''}`}>
+        <div className="page-header">
+          <div className="page-title">{meta.title}</div>
+          <div className="page-sub">{meta.sub}</div>
+        </div>
+        <div className="content">
+          {!hasData && page !== 'importar' && (
+            <div className="alert alert-info mb24">
+              📂 Todavía no cargaste datos. <span
+                style={{color:'var(--accent)', cursor:'pointer', textDecoration:'underline'}}
+                onClick={()=>setPage('importar')}
+              >Importar ahora →</span>
+            </div>
+          )}
+          {page === 'dashboard' && <Dashboard materias={materias} historia={historia} alumno={alumno} />}
+          {page === 'plan' && <PlanEstudios materias={materias} />}
+          {page === 'historia' && <HistoriaAcademica historia={historia} />}
+          {page === 'correlatividades' && <Correlatividades materias={materias} />}
+          {page === 'oferta' && <Oferta oferta={oferta} materias={materias} />}
+          {page === 'importar' && <Importar onImport={handleImport} hasData={hasData} onClear={handleClear} />}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

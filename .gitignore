@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# vite-plugin-pwa generated
+dev-dist

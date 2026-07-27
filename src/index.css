@@ -1,0 +1,166 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+
+:root {
+  --radius: 0.75rem;
+
+  /* Light theme */
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #16a34a;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #16a34a;
+
+  /* Status + chart accents */
+  --aprobado: #16a34a;
+  --en-curso: #0284c7;
+  --pendiente: #64748b;
+  --warning: #d97706;
+  --chart-blue: #0284c7;
+  --chart-yellow: #d97706;
+  --chart-purple: #7c3aed;
+  --chart-red: #dc2626;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-accent: #f1f5f9;
+}
+
+.dark {
+  --background: #0b1622;
+  --foreground: #e2e8f0;
+  --card: #1a2d42;
+  --card-foreground: #e2e8f0;
+  --popover: #172537;
+  --popover-foreground: #e2e8f0;
+  --primary: #4ade80;
+  --primary-foreground: #0b1622;
+  --secondary: #172537;
+  --secondary-foreground: #e2e8f0;
+  --muted: #172537;
+  --muted-foreground: #94a3b8;
+  --accent: #172537;
+  --accent-foreground: #e2e8f0;
+  --destructive: #f87171;
+  --destructive-foreground: #0b1622;
+  --border: #243650;
+  --input: #243650;
+  --ring: #38bdf8;
+
+  --aprobado: #4ade80;
+  --en-curso: #38bdf8;
+  --pendiente: #64748b;
+  --warning: #f59e0b;
+  --chart-blue: #38bdf8;
+  --chart-yellow: #f59e0b;
+  --chart-purple: #a78bfa;
+  --chart-red: #f87171;
+
+  --sidebar: #111f30;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-border: #243650;
+  --sidebar-accent: #172537;
+}
+
+/* ─── Tailwind theme mapping ─────────────────────────────────────────────── */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-aprobado: var(--aprobado);
+  --color-en-curso: var(--en-curso);
+  --color-pendiente: var(--pendiente);
+  --color-warning: var(--warning);
+  --color-chart-blue: var(--chart-blue);
+  --color-chart-yellow: var(--chart-yellow);
+  --color-chart-purple: var(--chart-purple);
+  --color-chart-red: var(--chart-red);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+}
+
+@keyframes rowflash {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  25%,
+  75% {
+    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+}
+.flash-row {
+  animation: rowflash 1.3s ease-in-out;
+}
