@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, GraduationCap, Pencil } from "lucide-react";
+import { Search, GraduationCap, Pencil, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,13 +47,24 @@ export function PlanEstudios() {
   const carreraActivaId = useAppStore((s) => s.carreraActivaId);
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [busqueda, setBusqueda] = useState("");
+  const [soloTecnico, setSoloTecnico] = useState(false);
   const [editing, setEditing] = useState<Materia | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [colapsados, setColapsados] = useState<Set<number>>(new Set());
+
+  const toggleAnio = (a: number) =>
+    setColapsados((prev) => {
+      const s = new Set(prev);
+      if (s.has(a)) s.delete(a);
+      else s.add(a);
+      return s;
+    });
 
   // Ir a una materia por código: limpia filtros, scrollea y hace parpadear la fila.
   const gotoMateria = (codigo: string) => {
     setFiltro("todas");
     setBusqueda("");
+    setColapsados(new Set()); // abrir todo para que la materia sea visible
     setFlash(codigo);
   };
 
@@ -77,13 +88,14 @@ export function PlanEstudios() {
     const filtered = principales.filter((m) => {
       const okFiltro = filtro === "todas" || m.estado === filtro;
       const okBusqueda = !busqueda || m.nombre.toLowerCase().includes(busqueda.toLowerCase());
-      return okFiltro && okBusqueda;
+      const okTecnico = !soloTecnico || m.tituloIntermedio;
+      return okFiltro && okBusqueda && okTecnico;
     });
     const anios = [...new Set(filtered.map((m) => m.anio).filter((a): a is number => a != null))].sort(
       (a, b) => a - b,
     );
     return anios.map((anio) => ({ anio, mats: filtered.filter((m) => m.anio === anio) }));
-  }, [materias, filtro, busqueda]);
+  }, [materias, filtro, busqueda, soloTecnico]);
 
   if (!carrera) {
     return (
@@ -106,7 +118,7 @@ export function PlanEstudios() {
             <TabsTrigger value="aprobado">Aprobadas</TabsTrigger>
             <TabsTrigger value="en_curso">En curso</TabsTrigger>
             <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
-            <TabsTrigger value="equivalencia">Equiv.</TabsTrigger>
+            <TabsTrigger value="equivalencia">Equivalencias</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="relative max-w-60 flex-1">
@@ -118,24 +130,69 @@ export function PlanEstudios() {
             onChange={(e) => setBusqueda(e.target.value)}
           />
         </div>
+        <Button
+          variant={soloTecnico ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSoloTecnico((v) => !v)}
+          className={soloTecnico ? "bg-chart-purple hover:bg-chart-purple/90 text-white" : ""}
+        >
+          Título Intermedio - Técnico
+        </Button>
+        {porAnio.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const anios = porAnio.map((a) => a.anio);
+              const todosColapsados = anios.every((a) => colapsados.has(a));
+              setColapsados(todosColapsados ? new Set() : new Set(anios));
+            }}
+          >
+            {porAnio.every((a) => colapsados.has(a.anio)) ? "Abrir todo" : "Colapsar todo"}
+          </Button>
+        )}
       </div>
 
       {porAnio.map(({ anio, mats }) => (
         <Card key={anio}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="text-sm font-semibold">{anio}° Año</div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
-                {mats.filter((m) => estaAprobada(m.estado)).length} aprobadas
-              </Badge>
-              <Badge variant="outline" className="bg-en-curso/15 text-en-curso border-en-curso/20">
-                {mats.filter((m) => m.estado === "en_curso").length} en curso
-              </Badge>
-              <Badge variant="outline" className="bg-pendiente/15 text-pendiente border-pendiente/20">
-                {mats.filter((m) => m.estado === "pendiente").length} pendientes
-              </Badge>
+          <CardHeader
+            className="flex cursor-pointer flex-row items-center justify-between gap-3 space-y-0"
+            onClick={() => toggleAnio(anio)}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold">{anio}° Año</span>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">{mats.length} total</Badge>
+                <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
+                  {mats.filter((m) => estaAprobada(m.estado)).length} aprobadas
+                </Badge>
+                <Badge variant="outline" className="bg-en-curso/15 text-en-curso border-en-curso/20">
+                  {mats.filter((m) => m.estado === "en_curso").length} en curso
+                </Badge>
+                <Badge variant="outline" className="bg-pendiente/15 text-pendiente border-pendiente/20">
+                  {mats.filter((m) => m.estado === "pendiente").length} pendientes
+                </Badge>
+              </div>
             </div>
+            <button
+              className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title={colapsados.has(anio) ? "Abrir" : "Colapsar"}
+            >
+              <ChevronDown
+                className={cn(
+                  "size-4 transition-transform duration-300 ease-in-out",
+                  colapsados.has(anio) && "-rotate-90",
+                )}
+              />
+            </button>
           </CardHeader>
+          <div
+            className={cn(
+              "grid transition-all duration-300 ease-in-out",
+              colapsados.has(anio) ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+            )}
+          >
+            <div className="overflow-hidden">
           <CardContent>
             <Table className="table-fixed">
               <TableHeader>
@@ -161,10 +218,19 @@ export function PlanEstudios() {
                       <TableCell className="font-medium align-top">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="break-words whitespace-normal">{m.nombre}</span>
+                          {m.tituloIntermedio && (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 border-chart-purple/30 bg-chart-purple/15 text-chart-purple text-[10px]"
+                              title="Cuenta para el título intermedio"
+                            >
+                              Tít. int.
+                            </Badge>
+                          )}
                           {compartidas[m.codigo] && (
                             <Badge
                               variant="outline"
-                              className="shrink-0 border-chart-purple/20 bg-chart-purple/15 text-chart-purple text-[10px]"
+                              className="shrink-0 border-en-curso/20 bg-en-curso/15 text-en-curso text-[10px]"
                               title={`También en: ${compartidas[m.codigo].join(", ")}`}
                             >
                               compartida
@@ -227,6 +293,8 @@ export function PlanEstudios() {
               </TableBody>
             </Table>
           </CardContent>
+            </div>
+          </div>
         </Card>
       ))}
 
@@ -258,6 +326,7 @@ function EditMateriaDialog({
   const [estado, setEstado] = useState<EstadoMateria>("pendiente");
   const [notaStr, setNotaStr] = useState("");
   const [fecha, setFecha] = useState("");
+  const [tituloInt, setTituloInt] = useState(false);
 
   // Sincroniza el form cuando cambia la materia a editar.
   const [lastId, setLastId] = useState<string | null>(null);
@@ -266,6 +335,7 @@ function EditMateriaDialog({
     setEstado(materia.estado);
     setNotaStr(materia.nota === null || materia.nota === undefined ? "" : String(materia.nota));
     setFecha(materia.fecha ?? "");
+    setTituloInt(!!materia.tituloIntermedio);
   }
 
   const notaEditable = estado === "aprobado";
@@ -285,6 +355,7 @@ function EditMateriaDialog({
       estado,
       nota: parseNota(),
       fecha: fecha.trim() || undefined,
+      tituloIntermedio: tituloInt,
     });
     onClose();
   };
@@ -331,6 +402,20 @@ function EditMateriaDialog({
               placeholder="DD/MM/AAAA"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setTituloInt((v) => !v)}
+            className={
+              "flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors " +
+              (tituloInt
+                ? "border-chart-purple/40 bg-chart-purple/10 text-chart-purple"
+                : "border-border text-muted-foreground hover:bg-accent")
+            }
+          >
+            <span>Cuenta para el título intermedio</span>
+            <span className="font-mono text-xs">{tituloInt ? "SÍ" : "no"}</span>
+          </button>
         </div>
 
         <DialogFooter>

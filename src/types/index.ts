@@ -19,6 +19,7 @@ export interface Materia {
   modulo: string; // nombre del módulo/sección en el plan
   esPrincipal: boolean; // true si es materia del plan principal (no crédito/genérica)
   fecha?: string; // fecha de aprobación (DD/MM/YYYY), editable a mano
+  tituloIntermedio?: boolean; // true si cuenta para el título intermedio (Técnico en Programación)
 }
 
 /** Entrada del historial académico (SIU la exporta sin distinción de carrera). */

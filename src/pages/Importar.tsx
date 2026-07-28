@@ -129,7 +129,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
         <DropZone
           tipo="plan"
           label="Plan de estudios"
-          desc="Guaraní → Plan de estudios → XLS"
+          desc="Reportes → Plan de estudios → XLS"
           icon={FileText}
           loading={loading.plan}
           done={done.plan}
@@ -138,7 +138,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
         <DropZone
           tipo="historia"
           label="Historia académica"
-          desc="Guaraní → Historia académica → XLS"
+          desc="Reportes → Historia académica → XLS"
           icon={BarChart3}
           loading={loading.historia}
           done={done.historia}

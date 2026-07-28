@@ -12,12 +12,27 @@ export async function readSheetRows(file: File): Promise<Row[]> {
   return XLSX.utils.sheet_to_json<Row>(ws, { header: 1, defval: "" });
 }
 
-/** Extrae el código entre paréntesis al final del nombre: "Materia (788)" -> "788". */
+/**
+ * Extrae el código entre paréntesis al final del nombre: "Materia (788)" -> "788".
+ * El SIU a veces agrega marcadores como " (!)" al final; se descartan y se busca
+ * el primer grupo que parezca un código real (alfanumérico / con guión bajo).
+ * "AU_Abordaje... (AU_2) (!)" -> codigo "AU_2", nombre "AU_Abordaje...".
+ */
 export function extraerCodigo(nombre: string): { codigo: string; nombreLimpio: string } {
-  const match = nombre.match(/\(([^)]+)\)$/);
-  const codigo = match ? match[1] : "";
-  const nombreLimpio = nombre.replace(/\([^)]+\)$/, "").trim();
-  return { codigo, nombreLimpio };
+  let name = nombre.trim();
+  let codigo = "";
+  const re = /\s*\(([^)]*)\)\s*$/;
+  let m: RegExpMatchArray | null;
+  while ((m = name.match(re)) !== null) {
+    const inner = m[1].trim();
+    name = name.slice(0, m.index).trim();
+    if (/^[A-Za-z0-9][A-Za-z0-9_]*$/.test(inner)) {
+      codigo = inner;
+      break;
+    }
+    // marcador (ej "!") -> seguir descartando
+  }
+  return { codigo, nombreLimpio: name };
 }
 
 export const cell = (row: Row | undefined, i: number): string =>

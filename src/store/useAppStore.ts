@@ -31,27 +31,42 @@ function fechaKey(f: string): string {
   return f.split("/").reverse().join("");
 }
 
-/** Cruza la historia académica sobre las materias de un plan. */
+const esEquiv = (h: EntradaHistoria) =>
+  /equivalencia/i.test(h.tipo) || /equivalencia/i.test(h.resultado);
+const esAprobado = (h: EntradaHistoria) =>
+  h.resultado === "Promocionado" || h.resultado === "Aprobado";
+const esEnCurso = (h: EntradaHistoria) =>
+  /en curso/i.test(h.tipo) || /en curso/i.test(h.resultado);
+
+const masReciente = (a: EntradaHistoria, b: EntradaHistoria) =>
+  fechaKey(b.fecha).localeCompare(fechaKey(a.fecha));
+
+/**
+ * Cruza la historia académica sobre las materias de un plan. Solo produce los
+ * 4 estados: aprobado, equivalencia, en_curso, pendiente. Prioridad:
+ * aprobado-con-nota → equivalencia → aprobado-sin-nota → en curso.
+ */
 function mergeEstados(materias: Materia[], historia: EntradaHistoria[]): Materia[] {
   return materias.map((m) => {
     if (!m.codigo) return m;
-    const aprobs = historia
-      .filter(
-        (h) =>
-          h.codigo === m.codigo &&
-          (h.resultado === "Promocionado" || h.resultado === "Aprobado"),
-      )
-      .sort((a, b) => fechaKey(b.fecha).localeCompare(fechaKey(a.fecha)));
-    const aprob = aprobs[0];
-    if (aprob)
-      return {
-        ...m,
-        estado: "aprobado",
-        nota: aprob.notaNum ?? m.nota,
-        fecha: aprob.fecha || m.fecha,
-      };
-    const enCurso = historia.find((h) => h.codigo === m.codigo && h.tipo === "En curso");
-    if (enCurso) return { ...m, estado: "en_curso" };
+    const entries = historia.filter((h) => h.codigo === m.codigo);
+    if (entries.length === 0) return m;
+
+    // La nota manda: si hay una entrada con nota numérica, la materia está
+    // aprobada con esa nota (aunque el tipo diga "Equivalencia").
+    const conNota = entries.filter((h) => h.notaNum != null).sort(masReciente);
+    if (conNota[0])
+      return { ...m, estado: "aprobado", nota: conNota[0].notaNum, fecha: conNota[0].fecha || m.fecha };
+
+    const equiv = entries.filter(esEquiv).sort(masReciente);
+    if (equiv[0])
+      return { ...m, estado: "equivalencia", nota: null, fecha: equiv[0].fecha || m.fecha };
+
+    const aprob = entries.filter(esAprobado).sort(masReciente);
+    if (aprob[0])
+      return { ...m, estado: "aprobado", nota: aprob[0].notaNum ?? m.nota, fecha: aprob[0].fecha || m.fecha };
+
+    if (entries.some(esEnCurso)) return { ...m, estado: "en_curso" };
     return m;
   });
 }

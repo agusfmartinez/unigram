@@ -29,6 +29,11 @@ export default function App() {
     setBooted(true);
   }, [hasData, booted]);
 
+  // Resetear scroll al cambiar de página.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [page]);
+
   const navigate = (id: PageId) => {
     setPage(id);
     setMobileOpen(false);

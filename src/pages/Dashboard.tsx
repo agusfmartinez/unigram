@@ -61,7 +61,6 @@ function StatCard({
 
 export function Dashboard() {
   const carrera = useActiveCarrera();
-  const historia = useAppStore((s) => s.historia);
   const alumno = useAppStore((s) => s.alumno);
 
   const materias = carrera?.materias ?? [];
@@ -73,11 +72,12 @@ export function Dashboard() {
     const enCurso = principales.filter((m) => m.estado === "en_curso");
     const pendientes = principales.filter((m) => m.estado === "pendiente");
 
-    const notasAprobadas = historia.filter((h) => h.notaNum && h.tipo !== "En curso");
+    // Notas del plan (solo materias con nota numérica). Consistente con el resto.
+    const notas = principales
+      .map((m) => m.nota)
+      .filter((n): n is number => typeof n === "number");
     const promedio =
-      notasAprobadas.length > 0
-        ? (notasAprobadas.reduce((s, h) => s + (h.notaNum ?? 0), 0) / notasAprobadas.length).toFixed(2)
-        : "—";
+      notas.length > 0 ? (notas.reduce((s, n) => s + n, 0) / notas.length).toFixed(2) : "—";
     const pct = principales.length > 0 ? Math.round((aprobadas.length / principales.length) * 100) : 0;
 
     const anios = [
@@ -90,11 +90,28 @@ export function Dashboard() {
 
     const notasDist = [10, 9, 8, 7, 6].map((n) => ({
       nota: n,
-      count: notasAprobadas.filter((h) => h.notaNum === n).length,
+      count: notas.filter((x) => x === n).length,
     }));
 
-    return { principales, aprobadas, enCurso, pendientes, notasAprobadas, promedio, pct, porAnio, notasDist };
-  }, [materias, historia]);
+    const tecnico = principales.filter((m) => m.tituloIntermedio);
+    const tecnicoAprob = tecnico.filter((m) => estaAprobada(m.estado));
+    const tecnicoPct = tecnico.length > 0 ? Math.round((tecnicoAprob.length / tecnico.length) * 100) : 0;
+
+    return {
+      principales,
+      aprobadas,
+      enCurso,
+      pendientes,
+      notas,
+      promedio,
+      pct,
+      porAnio,
+      notasDist,
+      tecnico,
+      tecnicoAprob,
+      tecnicoPct,
+    };
+  }, [materias]);
 
   if (!carrera) {
     return (
@@ -123,7 +140,7 @@ export function Dashboard() {
           color="var(--aprobado)"
         />
         <StatCard
-          title="En cursada"
+          title="En curso"
           value={stats.enCurso.length}
           sub="materias este cuatrimestre"
           color="var(--en-curso)"
@@ -131,7 +148,7 @@ export function Dashboard() {
         <StatCard
           title="Promedio general"
           value={stats.promedio}
-          sub={`sobre ${stats.notasAprobadas.length} calificaciones`}
+          sub={`sobre ${stats.notas.length} calificaciones`}
           color={notaColorVar(parseFloat(stats.promedio) || null)}
         />
         <StatCard title="Avance de carrera" value={`${stats.pct}%`}>
@@ -140,6 +157,35 @@ export function Dashboard() {
           </div>
         </StatCard>
       </div>
+
+      {stats.tecnico.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              🎓 Avance del título intermedio
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-1.5 flex items-center justify-between text-sm">
+              <strong style={{ color: "var(--chart-purple)" }}>
+                {stats.tecnicoPct}% completado
+              </strong>
+              <span className="text-muted-foreground">
+                {stats.tecnicoAprob.length}/{stats.tecnico.length} materias
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${stats.tecnicoPct}%`,
+                  background: "linear-gradient(90deg,#a78bfa,#f472b6)",
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -191,8 +237,8 @@ export function Dashboard() {
                     className="h-full rounded opacity-80 transition-all"
                     style={{
                       width:
-                        stats.notasAprobadas.length > 0
-                          ? `${(d.count / stats.notasAprobadas.length) * 100}%`
+                        stats.notas.length > 0
+                          ? `${(d.count / stats.notas.length) * 100}%`
                           : "0%",
                       background: notaColorVar(d.nota),
                     }}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Network, Pencil } from "lucide-react";
+import { Network, Pencil, Check, ChevronsUpDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -10,14 +11,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { EmptyState } from "@/components/EmptyState";
+import { cn } from "@/lib/utils";
 import { estadoMeta } from "@/lib/estado";
 import { useActiveCarrera, useAppStore } from "@/store/useAppStore";
 import type { Materia } from "@/types";
@@ -131,7 +135,16 @@ export function Correlatividades() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-en-curso/20 bg-en-curso/10 px-4 py-3 text-sm text-en-curso">
         <span>💡 Hacé click en una materia para resaltar sus correlativas. Editables desde el botón.</span>
-        {carrera && <CorrelativasEditor principales={principales} />}
+        <div className="flex gap-2">
+          {selectedNode && (
+            <CorrelativasEditor
+              principales={principales}
+              fixedTarget={selectedNode}
+              label="Editar materia"
+            />
+          )}
+          <CorrelativasEditor principales={principales} label="Editar correlativas" />
+        </div>
       </div>
 
       <div className="overflow-auto rounded-xl border bg-background">
@@ -265,10 +278,20 @@ export function Correlatividades() {
 
 // ─── Editor de correlativas ──────────────────────────────────────────────────
 
-function CorrelativasEditor({ principales }: { principales: Materia[] }) {
+function CorrelativasEditor({
+  principales,
+  fixedTarget,
+  label = "Editar correlativas",
+}: {
+  principales: Materia[];
+  fixedTarget?: string;
+  label?: string;
+}) {
   const carrera = useActiveCarrera();
   const updateCorrelatividades = useAppStore((s) => s.updateCorrelatividades);
   const [open, setOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [target, setTarget] = useState<string>("");
   const [draft, setDraft] = useState<string[]>([]);
 
@@ -278,6 +301,18 @@ function CorrelativasEditor({ principales }: { principales: Materia[] }) {
     setTarget(codigo);
     setDraft(correlatividades[codigo] ?? []);
   };
+
+  // Cuando hay materia fija (desde el mapa), se precarga al abrir el modal.
+  const handleOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (o && fixedTarget) onPickTarget(fixedTarget);
+    if (!o) {
+      setTarget("");
+      setDraft([]);
+    }
+  };
+
+  const targetMateria = principales.find((m) => m.codigo === target);
 
   const toggle = (codigo: string) => {
     setDraft((prev) =>
@@ -294,61 +329,132 @@ function CorrelativasEditor({ principales }: { principales: Materia[] }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          <Pencil className="size-3.5" /> Editar correlativas
+          <Pencil className="size-3.5" /> {label}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Editar correlativas</DialogTitle>
+          <DialogTitle>
+            {fixedTarget ? targetMateria?.nombre ?? "Editar materia" : "Editar correlativas"}
+          </DialogTitle>
           <DialogDescription>
-            Elegí una materia y marcá las que necesita como requisito previo.
+            {fixedTarget
+              ? "Marcá las materias que necesita como requisito previo."
+              : "Elegí una materia y marcá las que necesita como requisito previo."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Select value={target} onValueChange={onPickTarget}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Elegí la materia a editar" />
-            </SelectTrigger>
-            <SelectContent>
-              {principales.map((m) => (
-                <SelectItem key={m.codigo} value={m.codigo}>
-                  {m.nombre} ({m.codigo})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!fixedTarget && (
+            <Popover open={targetPickerOpen} onOpenChange={setTargetPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between font-normal">
+                  <span className={target ? "" : "text-muted-foreground"}>
+                    {target
+                      ? `${targetMateria?.nombre ?? ""} (${target})`
+                      : "Elegí la materia a editar"}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar por nombre o código..." />
+                  <CommandList>
+                    <CommandEmpty>Sin resultados.</CommandEmpty>
+                    <CommandGroup>
+                      {principales.map((m) => (
+                        <CommandItem
+                          key={m.codigo}
+                          value={`${m.nombre} ${m.codigo}`}
+                          onSelect={() => {
+                            onPickTarget(m.codigo);
+                            setTargetPickerOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn("size-4", target === m.codigo ? "opacity-100" : "opacity-0")}
+                          />
+                          <span className="flex-1 truncate">{m.nombre}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{m.codigo}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
 
           {target && (
-            <div className="flex flex-wrap gap-2">
-              {principales
-                .filter((m) => m.codigo !== target)
-                .map((m) => {
-                  const on = draft.includes(m.codigo);
-                  return (
-                    <button
-                      key={m.codigo}
-                      onClick={() => toggle(m.codigo)}
-                      className={
-                        "rounded-md border px-2 py-1 text-xs transition-colors " +
-                        (on
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border text-muted-foreground hover:bg-accent")
-                      }
-                    >
-                      {m.nombre} ({m.codigo})
-                    </button>
-                  );
-                })}
+            <div className="space-y-2">
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between font-normal">
+                    <span className="text-muted-foreground">
+                      {draft.length > 0
+                        ? `${draft.length} correlativa(s) seleccionada(s)`
+                        : "Agregar correlativas..."}
+                    </span>
+                    <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar por nombre o código..." />
+                    <CommandList>
+                      <CommandEmpty>Sin resultados.</CommandEmpty>
+                      <CommandGroup>
+                        {principales
+                          .filter((m) => m.codigo !== target)
+                          .map((m) => {
+                            const on = draft.includes(m.codigo);
+                            return (
+                              <CommandItem
+                                key={m.codigo}
+                                value={`${m.nombre} ${m.codigo}`}
+                                onSelect={() => toggle(m.codigo)}
+                              >
+                                <Check className={cn("size-4", on ? "opacity-100" : "opacity-0")} />
+                                <span className="flex-1 truncate">{m.nombre}</span>
+                                <span className="font-mono text-xs text-muted-foreground">{m.codigo}</span>
+                              </CommandItem>
+                            );
+                          })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {draft.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {draft.map((c) => {
+                    const m = principales.find((x) => x.codigo === c);
+                    return (
+                      <Badge key={c} variant="secondary" className="gap-1 pr-1">
+                        <span className="max-w-40 truncate">{m?.nombre ?? c}</span>
+                        <button
+                          onClick={() => toggle(c)}
+                          className="rounded-sm hover:bg-muted-foreground/20"
+                          title="Quitar"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={save} disabled={!target}>
