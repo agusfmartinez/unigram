@@ -1,7 +1,26 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import type { Materia, Turno } from "@/types";
 import {
   Table,
   TableBody,
@@ -85,9 +104,16 @@ function AvanceCard({ titulo, pct, gradient }: { titulo: string; pct: number; gr
   );
 }
 
+const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const TURNOS: { id: Turno; label: string; horas: string }[] = [
+  { id: "manana", label: "Mañana", horas: "08–12 hs" },
+  { id: "tarde", label: "Tarde", horas: "14–18 hs" },
+  { id: "noche", label: "Noche", horas: "18–22 hs" },
+];
 export function Dashboard() {
   const carrera = useActiveCarrera();
   const alumno = useAppStore((s) => s.alumno);
+  const [editCursada, setEditCursada] = useState<Materia | null>(null);
 
   const materias = carrera?.materias ?? [];
   const correlatividades = carrera?.correlatividades ?? {};
@@ -269,14 +295,34 @@ export function Dashboard() {
               <BookOpen className="size-4" /> Materias en curso este cuatrimestre
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {stats.enCurso.map((m) => (
-              <Badge key={m.id} variant="outline" className="bg-en-curso/15 text-en-curso border-en-curso/20">
-                {m.nombre}
-              </Badge>
-            ))}
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {stats.enCurso.map((m) => (
+                <button key={m.id} onClick={() => setEditCursada(m)}>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer bg-en-curso/15 text-en-curso border-en-curso/20 hover:bg-en-curso/25"
+                  >
+                    {m.nombre}
+                    {m.comision ? ` · Com ${m.comision}` : ""}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Clic en una materia para cargar comisión, días y turno.
+            </p>
+            <WeeklyGrid materias={stats.enCurso} />
           </CardContent>
         </Card>
+      )}
+
+      {carrera && (
+        <EnCursoModal
+          materia={editCursada}
+          carreraId={carrera.id}
+          onClose={() => setEditCursada(null)}
+        />
       )}
 
       {stats.pendientes.length > 0 && (
@@ -336,5 +382,163 @@ export function Dashboard() {
         </Card>
       )}
     </div>
+  );
+}
+
+// ─── Cuadrícula semanal de materias en curso ─────────────────────────────────
+
+function WeeklyGrid({ materias }: { materias: Materia[] }) {
+  const conHorario = materias.filter((m) => m.turno && m.dias && m.dias.length > 0);
+  if (conHorario.length === 0) {
+    return (
+      <div className="text-xs text-muted-foreground">
+        Todavía no cargaste días/turno de ninguna materia en curso.
+      </div>
+    );
+  }
+  const enCelda = (dia: string, t: Turno) =>
+    conHorario.filter((m) => m.turno === t && m.dias!.includes(dia));
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-xs">
+        <thead>
+          <tr>
+            <th className="w-24 border-b bg-muted/40 px-2 py-2 text-left text-muted-foreground">Turno</th>
+            {DIAS.map((d) => (
+              <th key={d} className="border-b bg-muted/40 px-2 py-2 text-center text-muted-foreground">
+                {d.slice(0, 3)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {TURNOS.map((t) => (
+            <tr key={t.id}>
+              <td className="border-b bg-muted/20 px-2 py-2 align-top">
+                <div className="font-semibold">{t.label}</div>
+                <div className="text-[10px] text-muted-foreground">{t.horas}</div>
+              </td>
+              {DIAS.map((d) => (
+                <td key={d} className="min-w-24 border-b p-1 align-top">
+                  {enCelda(d, t.id).map((m) => (
+                    <div
+                      key={m.id}
+                      className="mb-1 rounded border-l-2 border-en-curso bg-en-curso/10 px-1.5 py-1 leading-tight"
+                    >
+                      <div className="font-medium text-en-curso">{m.nombre}</div>
+                      {m.comision && (
+                        <div className="text-[10px] text-muted-foreground">Com {m.comision}</div>
+                      )}
+                    </div>
+                  ))}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Modal de cursada (comisión / días / turno) ──────────────────────────────
+
+function EnCursoModal({
+  materia,
+  carreraId,
+  onClose,
+}: {
+  materia: Materia | null;
+  carreraId: string;
+  onClose: () => void;
+}) {
+  const updateMateria = useAppStore((s) => s.updateMateria);
+  const [comision, setComision] = useState("");
+  const [dias, setDias] = useState<string[]>([]);
+  const [turno, setTurno] = useState<Turno | undefined>(undefined);
+  const [lastId, setLastId] = useState<string | null>(null);
+
+  if (materia && materia.id !== lastId) {
+    setLastId(materia.id);
+    setComision(materia.comision ?? "");
+    setDias(materia.dias ?? []);
+    setTurno(materia.turno);
+  }
+
+  const toggleDia = (d: string) =>
+    setDias((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+
+  const save = () => {
+    if (!materia) return;
+    updateMateria(carreraId, materia.id, {
+      comision: comision.trim() || undefined,
+      dias: dias.length ? dias : undefined,
+      turno,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={!!materia} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="break-words pr-6">{materia?.nombre}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Comisión</Label>
+            <Input value={comision} onChange={(e) => setComision(e.target.value)} placeholder="ej: 1" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Días</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {DIAS.map((d) => {
+                const on = dias.includes(d);
+                return (
+                  <button
+                    key={d}
+                    onClick={() => toggleDia(d)}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs transition-colors",
+                      on
+                        ? "border-en-curso bg-en-curso/15 text-en-curso"
+                        : "border-border text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    {d.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Turno</Label>
+            <Select value={turno ?? ""} onValueChange={(v) => setTurno(v as Turno)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Elegí turno" />
+              </SelectTrigger>
+              <SelectContent>
+                {TURNOS.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.label} ({t.horas})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={save}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

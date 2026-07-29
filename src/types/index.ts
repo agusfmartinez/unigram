@@ -1,6 +1,7 @@
 // ─── Domain types ──────────────────────────────────────────────────────────
 
 export type EstadoMateria = "aprobado" | "en_curso" | "pendiente" | "equivalencia";
+export type Turno = "manana" | "tarde" | "noche";
 export type TipoMateria = "materia" | "credito";
 export type Nota = number | "C" | null;
 
@@ -20,6 +21,10 @@ export interface Materia {
   esPrincipal: boolean; // true si es materia del plan principal (no crédito/genérica)
   fecha?: string; // fecha de aprobación (DD/MM/YYYY), editable a mano
   tituloIntermedio?: boolean; // true si cuenta para el título intermedio (Técnico en Programación)
+  // Datos de cursada (solo para materias en curso), cargados a mano:
+  comision?: string;
+  dias?: string[]; // "Lunes", "Miércoles", ...
+  turno?: Turno;
 }
 
 /** Entrada del historial académico (SIU la exporta sin distinción de carrera). */
