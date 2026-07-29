@@ -267,7 +267,7 @@ export function PlanEstudios() {
                                   title={mat ? `Ir a ${mat.nombre}` : c}
                                   className={
                                     "rounded px-1.5 py-0.5 font-mono text-[10px] transition-transform hover:scale-110 " +
-                                    (ok ? "bg-aprobado/15 text-aprobado" : "bg-warning/15 text-warning")
+                                    (ok ? "bg-aprobado/15 text-aprobado" : "bg-gray-700 text-gray-400")
                                   }
                                 >
                                   {c}
@@ -364,7 +364,7 @@ function EditMateriaDialog({
     <Dialog open={!!materia} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="truncate">{materia?.nombre}</DialogTitle>
+          <DialogTitle className="break-words pr-6">{materia?.nombre}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

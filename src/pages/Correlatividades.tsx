@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { Network, Pencil, Check, ChevronsUpDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,23 @@ function wrapLabel(text: string, maxChars = 20, maxLines = 2): string[] {
 export function Correlatividades() {
   const carrera = useActiveCarrera();
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<string | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const longFired = useRef(false);
+
+  const startPress = (codigo: string) => {
+    longFired.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longFired.current = true;
+      setEditTarget(codigo);
+    }, 550);
+  };
+  const endPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
 
   const materias = carrera?.materias ?? [];
   const correlatividades = carrera?.correlatividades ?? {};
@@ -134,7 +151,7 @@ export function Correlatividades() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-en-curso/20 bg-en-curso/10 px-4 py-3 text-sm text-en-curso">
-        <span>💡 Hacé click en una materia para resaltar sus correlativas. Editables desde el botón.</span>
+        <span>💡 Hacé click en una materia para resaltar sus correlativas. Mantené presionado para ver más info de la materia.</span>
         <div className="flex gap-2">
           {selectedNode && (
             <CorrelativasEditor
@@ -145,6 +162,31 @@ export function Correlatividades() {
           )}
           <CorrelativasEditor principales={principales} label="Editar correlativas" />
         </div>
+      </div>
+
+      {/* Editor abierto por long-press sobre un nodo del mapa (sin botón). */}
+      <CorrelativasEditor
+        principales={principales}
+        fixedTarget={editTarget ?? undefined}
+        showTrigger={false}
+        controlledOpen={editTarget != null}
+        onControlledOpenChange={(o) => {
+          if (!o) setEditTarget(null);
+        }}
+      />
+
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        {[
+          { color: "var(--aprobado)", label: "Aprobada" },
+          { color: "var(--en-curso)", label: "En curso" },
+          { color: "var(--pendiente)", label: "Pendiente" },
+          { color: "var(--warning)", label: "Equivalencia" },
+        ].map((l) => (
+          <div key={l.label} className="flex items-center gap-2">
+            <div className="size-3 rounded" style={{ background: l.color }} />
+            {l.label}
+          </div>
+        ))}
       </div>
 
       <div className="overflow-auto rounded-xl border bg-background">
@@ -203,7 +245,16 @@ export function Correlatividades() {
               <g
                 key={n.id}
                 style={{ cursor: "pointer" }}
-                onClick={() => setSelectedNode(isSel ? null : n.codigo)}
+                onPointerDown={() => startPress(n.codigo)}
+                onPointerUp={endPress}
+                onPointerLeave={endPress}
+                onClick={() => {
+                  if (longFired.current) {
+                    longFired.current = false;
+                    return; // fue long-press: no togglear selección
+                  }
+                  setSelectedNode(isSel ? null : n.codigo);
+                }}
               >
                 <rect
                   x={n.x - n.width / 2}
@@ -258,20 +309,6 @@ export function Correlatividades() {
           })}
         </svg>
       </div>
-
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        {[
-          { color: "var(--aprobado)", label: "Aprobada" },
-          { color: "var(--en-curso)", label: "En curso" },
-          { color: "var(--pendiente)", label: "Pendiente" },
-          { color: "var(--warning)", label: "Equivalencia" },
-        ].map((l) => (
-          <div key={l.label} className="flex items-center gap-2">
-            <div className="size-3 rounded" style={{ background: l.color }} />
-            {l.label}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -282,18 +319,32 @@ function CorrelativasEditor({
   principales,
   fixedTarget,
   label = "Editar correlativas",
+  showTrigger = true,
+  controlledOpen,
+  onControlledOpenChange,
 }: {
   principales: Materia[];
   fixedTarget?: string;
   label?: string;
+  showTrigger?: boolean;
+  controlledOpen?: boolean;
+  onControlledOpenChange?: (o: boolean) => void;
 }) {
   const carrera = useActiveCarrera();
   const updateCorrelatividades = useAppStore((s) => s.updateCorrelatividades);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [target, setTarget] = useState<string>("");
   const [draft, setDraft] = useState<string[]>([]);
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (o: boolean) => {
+    if (isControlled) onControlledOpenChange?.(o);
+    else setInternalOpen(o);
+  };
+  const handleOpenChange = (o: boolean) => setOpen(o);
 
   const correlatividades = carrera?.correlatividades ?? {};
 
@@ -302,15 +353,15 @@ function CorrelativasEditor({
     setDraft(correlatividades[codigo] ?? []);
   };
 
-  // Cuando hay materia fija (desde el mapa), se precarga al abrir el modal.
-  const handleOpenChange = (o: boolean) => {
-    setOpen(o);
-    if (o && fixedTarget) onPickTarget(fixedTarget);
-    if (!o) {
+  // Precarga la materia fija al abrir y limpia al cerrar (controlado o no).
+  useEffect(() => {
+    if (open && fixedTarget) onPickTarget(fixedTarget);
+    if (!open) {
       setTarget("");
       setDraft([]);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fixedTarget]);
 
   const targetMateria = principales.find((m) => m.codigo === target);
 
@@ -330,11 +381,13 @@ function CorrelativasEditor({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          <Pencil className="size-3.5" /> {label}
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">
+            <Pencil className="size-3.5" /> {label}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
