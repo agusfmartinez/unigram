@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { BookOpen, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -54,6 +53,33 @@ function StatCard({
         )}
         {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
         {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AvanceCard({ titulo, pct, gradient }: { titulo: string; pct: number; gradient: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {titulo}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-2 flex items-end justify-between">
+          <div className="text-3xl font-bold leading-none">
+            {pct}%
+            <span className="ml-1 text-sm font-normal text-muted-foreground">logrado</span>
+          </div>
+          <div className="text-sm text-muted-foreground">{100 - pct}% pendiente</div>
+        </div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, background: gradient }}
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -140,9 +166,15 @@ export function Dashboard() {
           color="var(--aprobado)"
         />
         <StatCard
-          title="En curso"
+          title="Materias restantes"
+          value={stats.pendientes.length}
+          sub="por cursar"
+          color="var(--pendiente)"
+        />
+        <StatCard
+          title="Materias en curso"
           value={stats.enCurso.length}
-          sub="materias este cuatrimestre"
+          sub="este cuatrimestre"
           color="var(--en-curso)"
         />
         <StatCard
@@ -151,41 +183,20 @@ export function Dashboard() {
           sub={`sobre ${stats.notas.length} calificaciones`}
           color={notaColorVar(parseFloat(stats.promedio) || null)}
         />
-        <StatCard title="Avance de carrera" value={`${stats.pct}%`}>
-          <div className="mt-3">
-            <Progress value={stats.pct} />
-          </div>
-        </StatCard>
       </div>
 
-      {stats.tecnico.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              🎓 Avance del título intermedio
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-1.5 flex items-center justify-between text-sm">
-              <strong style={{ color: "var(--chart-purple)" }}>
-                {stats.tecnicoPct}% completado
-              </strong>
-              <span className="text-muted-foreground">
-                {stats.tecnicoAprob.length}/{stats.tecnico.length} materias
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${stats.tecnicoPct}%`,
-                  background: "linear-gradient(90deg,#a78bfa,#f472b6)",
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AvanceCard
+          titulo="Avance Licenciatura"
+          pct={stats.pct}
+          gradient="linear-gradient(90deg,#4ade80,#38bdf8)"
+        />
+        <AvanceCard
+          titulo="Avance título intermedio"
+          pct={stats.tecnicoPct}
+          gradient="linear-gradient(90deg,#a78bfa,#f472b6)"
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
