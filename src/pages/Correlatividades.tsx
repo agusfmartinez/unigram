@@ -33,9 +33,14 @@ interface Node extends Materia {
   height: number;
 }
 
-const COL_GAP = 300;
-const COL_X0 = 120;
-const colX = (idx: number) => COL_X0 + idx * COL_GAP;
+const COL_X0 = 110;
+const YEAR_GAP = 430; // separación entre años
+const SUB_GAP = 190; // separación entre las 2 subcolumnas de un mismo año
+const NODE_W = 150;
+const NODE_H = 56;
+const ROW_H = 84;
+/** x del centro de un nodo según año (idx) y subcolumna (0 = izq, 1 = der). */
+const xPos = (yearIdx: number, sub: number) => COL_X0 + yearIdx * YEAR_GAP + sub * SUB_GAP;
 
 /** Parte un nombre en hasta `maxLines` renglones de ~`maxChars`, con … si sobra. */
 function wrapLabel(text: string, maxChars = 20, maxLines = 2): string[] {
@@ -66,6 +71,32 @@ export function Correlatividades() {
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const pressTimer = useRef<number | null>(null);
   const longFired = useRef(false);
+
+  // Pan con arrastre (mouse) sobre el lienzo.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panStart = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const didPan = useRef(false);
+
+  const onCanvasPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return; // en touch, scroll nativo
+    const el = scrollRef.current;
+    if (!el) return;
+    panStart.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
+    didPan.current = false;
+  };
+  const onCanvasPointerMove = (e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    const s = panStart.current;
+    if (!el || !s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) didPan.current = true;
+    el.scrollLeft = s.left - dx;
+    el.scrollTop = s.top - dy;
+  };
+  const endPan = () => {
+    panStart.current = null;
+  };
 
   const startPress = (codigo: string) => {
     longFired.current = false;
@@ -100,17 +131,47 @@ export function Correlatividades() {
   const { nodeList, nodeMap } = useMemo(() => {
     const list: Node[] = [];
     const map: Record<string, Node> = {};
-    anios.forEach((anio, idx) => {
-      const x = colX(idx);
-      const mats = principales.filter((m) => m.anio === anio);
-      mats.forEach((m, i) => {
-        const node: Node = { ...m, x, y: 60 + i * 84, width: 160, height: 56 };
+
+    const ordenarPorBaricentro = (mats: Materia[]) =>
+      mats
+        .map((m, origIdx) => {
+          const prereqs = (correlatividades[m.codigo] ?? [])
+            .map((c) => map[c])
+            .filter(Boolean) as Node[];
+          const bary =
+            prereqs.length > 0
+              ? prereqs.reduce((s, n) => s + n.y, 0) / prereqs.length
+              : 60 + origIdx * ROW_H;
+          return { m, bary };
+        })
+        .sort((a, b) => a.bary - b.bary)
+        .map((o) => o.m);
+
+    const place = (mats: Materia[], yearIdx: number, sub: number) => {
+      const x = xPos(yearIdx, sub);
+      ordenarPorBaricentro(mats).forEach((m, i) => {
+        const node: Node = { ...m, x, y: 60 + i * ROW_H, width: NODE_W, height: NODE_H };
         map[m.codigo] = node;
         list.push(node);
       });
+    };
+
+    anios.forEach((anio, idx) => {
+      const mats = principales.filter((m) => m.anio === anio);
+      const codigosAnio = new Set(mats.map((m) => m.codigo));
+      // Subcolumna: si depende de otra materia del mismo año → derecha (1), sino izq (0).
+      const izq = mats.filter(
+        (m) => !(correlatividades[m.codigo] ?? []).some((c) => codigosAnio.has(c)),
+      );
+      const der = mats.filter((m) =>
+        (correlatividades[m.codigo] ?? []).some((c) => codigosAnio.has(c)),
+      );
+      place(izq, idx, 0); // primero la izquierda (para que la derecha use su y)
+      place(der, idx, 1);
     });
+
     return { nodeList: list, nodeMap: map };
-  }, [principales, anios]);
+  }, [principales, anios, correlatividades]);
 
   const edges = useMemo(() => {
     const result: { from: Node; to: Node; src: string; target: string }[] = [];
@@ -125,7 +186,7 @@ export function Correlatividades() {
   }, [correlatividades, nodeMap]);
 
   const svgH = Math.max(400, ...nodeList.map((n) => n.y + n.height + 60));
-  const svgW = Math.max(900, colX(anios.length - 1) + 180);
+  const svgW = Math.max(900, xPos(anios.length - 1, 1) + NODE_W / 2 + 50);
 
   const highlighted = useMemo(() => {
     if (!selectedNode) return null;
@@ -189,8 +250,15 @@ export function Correlatividades() {
         ))}
       </div>
 
-      <div className="overflow-auto rounded-xl border bg-background">
-        <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} className="block">
+      <div
+        ref={scrollRef}
+        className="overflow-auto rounded-xl border bg-background [cursor:grab] active:[cursor:grabbing]"
+        onPointerDown={onCanvasPointerDown}
+        onPointerMove={onCanvasPointerMove}
+        onPointerUp={endPan}
+        onPointerLeave={endPan}
+      >
+        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="block max-w-none select-none">
           <defs>
             <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
               <path d="M0,0 L0,6 L8,3 z" style={{ fill: "var(--aprobado)" }} opacity=".6" />
@@ -201,11 +269,13 @@ export function Correlatividades() {
           </defs>
 
           {anios.map((anio, idx) => {
-            const x = colX(idx);
+            const cx = xPos(idx, 0) + SUB_GAP / 2;
+            const x1 = xPos(idx, 0) - NODE_W / 2 - 10;
+            const x2 = xPos(idx, 1) + NODE_W / 2 + 10;
             return (
               <g key={anio}>
                 <text
-                  x={x}
+                  x={cx}
                   y={28}
                   textAnchor="middle"
                   fontSize="12"
@@ -214,7 +284,7 @@ export function Correlatividades() {
                 >
                   {anio}° Año
                 </text>
-                <line x1={x - 80} y1={38} x2={x + 80} y2={38} style={{ stroke: "var(--border)" }} />
+                <line x1={x1} y1={38} x2={x2} y2={38} style={{ stroke: "var(--border)" }} />
               </g>
             );
           })}
@@ -222,16 +292,20 @@ export function Correlatividades() {
           {edges.map((e, i) => {
             const isHi = highlighted && (highlighted.has(e.src) || highlighted.has(e.target));
             const isDim = highlighted && !isHi;
+            const x1 = e.from.x + e.from.width / 2;
+            const y1 = e.from.y + e.from.height / 2;
+            const x2 = e.to.x - e.to.width / 2 - 6;
+            const y2 = e.to.y + e.to.height / 2;
+            const dx = Math.max(40, (x2 - x1) / 2);
+            const d = `M ${x1},${y1} C ${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
             return (
-              <line
+              <path
                 key={i}
-                x1={e.from.x + e.from.width / 2}
-                y1={e.from.y + e.from.height / 2}
-                x2={e.to.x - 8}
-                y2={e.to.y + e.to.height / 2}
+                d={d}
+                fill="none"
                 style={{ stroke: isDim ? "var(--border)" : "var(--aprobado)" }}
-                strokeWidth={isHi ? 2 : 1}
-                strokeOpacity={isDim ? 0.3 : highlighted ? 0.9 : 0.4}
+                strokeWidth={isHi ? 2 : 1.25}
+                strokeOpacity={isDim ? 0.25 : highlighted ? 0.9 : 0.35}
                 markerEnd={isDim ? "url(#arrow-dim)" : "url(#arrow)"}
               />
             );
@@ -249,6 +323,10 @@ export function Correlatividades() {
                 onPointerUp={endPress}
                 onPointerLeave={endPress}
                 onClick={() => {
+                  if (didPan.current) {
+                    didPan.current = false;
+                    return; // fue arrastre/pan: no togglear
+                  }
                   if (longFired.current) {
                     longFired.current = false;
                     return; // fue long-press: no togglear selección
