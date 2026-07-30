@@ -4,7 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
 
-export default defineConfig({
+// GitHub Pages sirve el sitio bajo /<repo>/. En dev usamos "/".
+const BASE = "/unigram/";
+
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? BASE : "/",
   plugins: [
     react(),
     tailwindcss(),
@@ -19,7 +23,8 @@ export default defineConfig({
         background_color: "#0b1622",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/",
+        start_url: ".",
+        scope: ".",
         icons: [
           { src: "favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           { src: "favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
@@ -32,4 +37,4 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
-});
+}));
