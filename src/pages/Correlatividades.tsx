@@ -290,8 +290,9 @@ export function Correlatividades() {
           })}
 
           {edges.map((e, i) => {
-            const isHi = highlighted && (highlighted.has(e.src) || highlighted.has(e.target));
-            const isDim = highlighted && !isHi;
+            // Solo las flechas entrantes/salientes del nodo seleccionado.
+            const isHi = selectedNode != null && (e.src === selectedNode || e.target === selectedNode);
+            const isDim = selectedNode != null && !isHi;
             const x1 = e.from.x + e.from.width / 2;
             const y1 = e.from.y + e.from.height / 2;
             const x2 = e.to.x - e.to.width / 2 - 6;
