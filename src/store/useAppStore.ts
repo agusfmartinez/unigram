@@ -9,6 +9,7 @@ import type {
   PlanParseResult,
 } from "@/types";
 import { seedCorrelatividades } from "@/lib/correlatividades";
+import { SEED_CARRERA } from "@/data/seedCarrera";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,6 @@ function mergeEstados(materias: Materia[], historia: EntradaHistoria[]): Materia
   return materias.map((m) => {
     if (!m.codigo) return m;
     const entries = historia.filter((h) => h.codigo === m.codigo);
-    if (entries.length === 0) return m;
 
     // La nota manda: si hay una entrada con nota numérica, la materia está
     // aprobada con esa nota (aunque el tipo diga "Equivalencia").
@@ -67,6 +67,12 @@ function mergeEstados(materias: Materia[], historia: EntradaHistoria[]): Materia
       return { ...m, estado: "aprobado", nota: aprob[0].notaNum ?? m.nota, fecha: aprob[0].fecha || m.fecha };
 
     if (entries.some(esEnCurso)) return { ...m, estado: "en_curso" };
+
+    // El import no marca esta materia como cursada/aprobada. La historia nueva
+    // manda: si venía "en curso", se limpia (dejó de cursarse) junto con su
+    // comisión/días/turno. Aprobadas y equivalencias previas no se tocan.
+    if (m.estado === "en_curso")
+      return { ...m, estado: "pendiente", comision: undefined, dias: undefined, turno: undefined };
     return m;
   });
 }
@@ -84,9 +90,16 @@ interface AppState {
   historia: EntradaHistoria[];
   oferta: MateriaOferta[];
   alumno: Alumno | null;
+  seedLoaded: boolean;
+  /** Código de materia a resaltar al entrar al Plan (navegación entre páginas). */
+  focusMateria: string | null;
 
+  loadSeed: () => "loaded" | "exists";
+  loadSeedPlan: (plan: Carrera) => "loaded" | "exists";
+  setFocusMateria: (codigo: string | null) => void;
+  setAlumno: (alumno: Alumno | null) => void;
   importPlan: (result: PlanParseResult, replace?: boolean) => ImportPlanResult;
-  importHistoria: (entradas: EntradaHistoria[]) => void;
+  importHistoria: (entradas: EntradaHistoria[], alumno?: Alumno | null) => void;
   importOferta: (list: MateriaOferta[]) => void;
   setCarreraActiva: (id: string) => void;
   updateMateria: (carreraId: string, materiaId: string, patch: Partial<Materia>) => void;
@@ -95,7 +108,6 @@ interface AppState {
   clearAll: () => void;
   exportBackup: () => string;
   importBackup: (json: string) => boolean;
-  migrateLegacy: () => boolean;
 }
 
 export const useAppStore = create<AppState>()(
@@ -106,6 +118,36 @@ export const useAppStore = create<AppState>()(
       historia: [],
       oferta: [],
       alumno: null,
+      seedLoaded: false,
+      focusMateria: null,
+
+      setFocusMateria: (codigo) => set({ focusMateria: codigo }),
+
+      /** Carga la plantilla de la Licenciatura (si no está ya) y la activa. */
+      loadSeed: () => get().loadSeedPlan(SEED_CARRERA),
+
+      /** Carga un plan precargado del catálogo (si no está ya) y lo activa. */
+      loadSeedPlan: (plan) => {
+        const { carreras, historia } = get();
+        if (carreras.some((c) => c.id === plan.id)) {
+          set({ carreraActivaId: plan.id, seedLoaded: true });
+          return "exists";
+        }
+        const carrera: Carrera = {
+          ...plan,
+          importadaEn: new Date().toISOString(),
+          // Cruzar la historia ya importada sobre el plan nuevo.
+          materias: mergeEstados(plan.materias, historia),
+        };
+        set({
+          carreras: [...carreras, carrera],
+          carreraActivaId: carrera.id,
+          seedLoaded: true,
+        });
+        return "loaded";
+      },
+
+      setAlumno: (alumno) => set({ alumno }),
 
       importPlan: (result, replace = false) => {
         const { carrera: base, alumno } = result;
@@ -138,9 +180,10 @@ export const useAppStore = create<AppState>()(
         return { status: existe ? "replaced" : "imported", id };
       },
 
-      importHistoria: (entradas) => {
+      importHistoria: (entradas, alumno) => {
         set((s) => ({
           historia: entradas,
+          alumno: alumno ?? s.alumno,
           carreras: s.carreras.map((c) => ({
             ...c,
             materias: mergeEstados(c.materias, entradas),
@@ -199,51 +242,6 @@ export const useAppStore = create<AppState>()(
           null,
           2,
         );
-      },
-
-      /**
-       * Importa datos del prototipo HTML (claves localStorage `tup_*`) como una
-       * carrera única, si el store actual está vacío. Devuelve true si migró algo.
-       */
-      migrateLegacy: () => {
-        if (get().carreras.length > 0) return false;
-        try {
-          const rawMaterias = localStorage.getItem("tup_materias");
-          if (!rawMaterias) return false;
-          const materias = JSON.parse(rawMaterias) as Materia[];
-          if (!Array.isArray(materias) || materias.length === 0) return false;
-
-          const legacyAlumno = localStorage.getItem("tup_alumno");
-          const parsedAlumno = legacyAlumno ? JSON.parse(legacyAlumno) : null;
-          const nombreCarrera: string = parsedAlumno?.propuesta || "Carrera importada";
-          const historia = JSON.parse(localStorage.getItem("tup_historia") || "[]");
-          const oferta = JSON.parse(localStorage.getItem("tup_oferta") || "[]");
-
-          const id = carreraId(nombreCarrera, "");
-          const carrera: Carrera = {
-            id,
-            nombre: nombreCarrera,
-            codigo: "",
-            version: "",
-            universidad: "Universidad Nacional de Hurlingham",
-            correlatividades: seedCorrelatividades(nombreCarrera, ""),
-            importadaEn: new Date().toISOString(),
-            materias,
-          };
-
-          set({
-            carreras: [carrera],
-            carreraActivaId: id,
-            historia: Array.isArray(historia) ? historia : [],
-            oferta: Array.isArray(oferta) ? oferta : [],
-            alumno: parsedAlumno
-              ? { nombre: parsedAlumno.nombre ?? "", legajo: parsedAlumno.legajo ?? "" }
-              : null,
-          });
-          return true;
-        } catch {
-          return false;
-        }
       },
 
       importBackup: (json) => {

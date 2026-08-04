@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV, type PageId } from "./nav";
 import { CarreraSelector } from "./CarreraSelector";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, useActiveCarrera } from "@/store/useAppStore";
 
 interface SidebarProps {
   page: PageId;
@@ -18,20 +18,21 @@ const SECTION_LABEL: Record<string, string> = {
 
 export function Sidebar({ page, onNavigate, collapsed = false, onToggleCollapse }: SidebarProps) {
   const alumno = useAppStore((s) => s.alumno);
+  const carreraActiva = useActiveCarrera();
   const sections = [...new Set(NAV.map((n) => n.section))];
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-sidebar-border px-4 py-4">
+      <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-4">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-          TUP
+          Uni
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <div className="truncate text-sm font-bold leading-tight">TUP Tracker</div>
+            <div className="truncate text-sm font-bold leading-tight">Unigram</div>
             <div className="truncate text-xs text-muted-foreground">
-              {alumno ? alumno.nombre.split(" ")[0] : "Sin datos"}
+              {alumno ? alumno.nombre.split(" ")[0] : carreraActiva?.nombre ?? "Sin datos"}
             </div>
           </div>
         )}

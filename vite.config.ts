@@ -16,8 +16,8 @@ export default defineConfig(({ command }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "TUP Tracker",
-        short_name: "TUP Tracker",
+        name: "Unigram",
+        short_name: "Unigram",
         description: "Seguimiento de carrera universitaria — SIU Guaraní",
         theme_color: "#0b1622",
         background_color: "#0b1622",

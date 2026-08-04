@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   BarChart3,
@@ -8,15 +8,26 @@ import {
   Upload,
   CheckCircle2,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { parsePlanEstudios } from "@/lib/parsers/parsePlanEstudios";
 import { parseHistoriaAcademica } from "@/lib/parsers/parseHistoriaAcademica";
 import { parseOferta } from "@/lib/parsers/parseOferta";
 import { useAppStore, useHasData } from "@/store/useAppStore";
+import { SEED_PLANES } from "@/data/seedCarrera";
 import type { PageId } from "@/components/layout/nav";
 
 type Tipo = "plan" | "historia" | "oferta";
@@ -30,8 +41,42 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
   const clearAll = useAppStore((s) => s.clearAll);
   const exportBackup = useAppStore((s) => s.exportBackup);
   const importBackup = useAppStore((s) => s.importBackup);
-  const migrateLegacy = useAppStore((s) => s.migrateLegacy);
+  const loadSeedPlan = useAppStore((s) => s.loadSeedPlan);
+  const alumno = useAppStore((s) => s.alumno);
+  const setAlumno = useAppStore((s) => s.setAlumno);
   const hasData = useHasData();
+
+  const [nombre, setNombre] = useState("");
+  const [legajo, setLegajo] = useState("");
+  useEffect(() => {
+    setNombre(alumno?.nombre ?? "");
+    setLegajo(alumno?.legajo ?? "");
+  }, [alumno]);
+
+  const saveAlumno = () => {
+    setAlumno(nombre.trim() ? { nombre: nombre.trim(), legajo: legajo.trim() } : null);
+  };
+
+  // Agregar carrera: desplegable (planes precargados + importar XLS).
+  const [agregando, setAgregando] = useState(false);
+  const [showPlanImport, setShowPlanImport] = useState(false);
+  const planesDisponibles = SEED_PLANES.filter(
+    (p) => !carreras.some((c) => c.id === p.id),
+  );
+
+  const elegirPlan = (value: string) => {
+    if (value === "__xls__") {
+      setShowPlanImport(true);
+      setAgregando(false);
+      return;
+    }
+    const plan = SEED_PLANES.find((p) => p.id === value);
+    if (plan) {
+      loadSeedPlan(plan);
+      setAgregando(false);
+      setShowPlanImport(false);
+    }
+  };
 
   const [loading, setLoading] = useState<Record<Tipo, boolean>>({
     plan: false,
@@ -65,9 +110,12 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
           if (!ok) return;
           res = importPlan(result, true);
         }
+        setShowPlanImport(false);
+        setAgregando(false);
         onNavigate("dashboard");
       } else if (tipo === "historia") {
-        importHistoria(await parseHistoriaAcademica(file));
+        const { entradas, alumno } = await parseHistoriaAcademica(file);
+        importHistoria(entradas, alumno);
       } else {
         importOferta(await parseOferta(file));
       }
@@ -96,16 +144,6 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     else window.alert("El archivo de backup no es válido.");
   };
 
-  const handleMigrate = () => {
-    const ok = migrateLegacy();
-    if (ok) {
-      window.alert("Datos del prototipo importados como carrera.");
-      onNavigate("dashboard");
-    } else {
-      window.alert("No se encontraron datos del prototipo, o ya tenés carreras cargadas.");
-    }
-  };
-
   const handleClear = () => {
     if (window.confirm("¿Borrar TODOS los datos guardados? Esta acción no se puede deshacer.")) {
       clearAll();
@@ -113,8 +151,137 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     }
   };
 
+  const planImportDropzone = (
+    <DropZone
+      tipo="plan"
+      label="Plan de estudios"
+      desc="Reportes → Plan de estudios → XLS"
+      icon={FileText}
+      loading={loading.plan}
+      done={done.plan}
+      onFile={handleFile}
+    />
+  );
+
+  const mostrarSelector = carreras.length === 0 || agregando;
+
   return (
     <div className="space-y-6">
+      {/* 1) Datos del alumno (el XLS de historia no los trae) */}
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Datos del alumno
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 space-y-1.5" style={{ minWidth: 200 }}>
+              <Label>Nombre</Label>
+              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" />
+            </div>
+            <div className="w-40 space-y-1.5">
+              <Label>Legajo</Label>
+              <Input value={legajo} onChange={(e) => setLegajo(e.target.value)} placeholder="Legajo" />
+            </div>
+            <Button variant="outline" onClick={saveAlumno}>
+              Guardar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2) Carrera en curso */}
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Carrera en curso
+          </div>
+
+          {carreras.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
+            >
+              <div>
+                <div className="text-sm font-medium">{c.nombre}</div>
+                <div className="text-xs text-muted-foreground">
+                  {c.codigo && <>({c.codigo}) · </>}
+                  {c.materias.filter((m) => m.esPrincipal).length} materias
+                  {(() => {
+                    const cred = c.materias.filter((m) => !m.esPrincipal).length;
+                    return cred > 0 ? ` · ${cred} créditos/electivas` : "";
+                  })()}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon-sm" onClick={() => removeCarrera(c.id)}>
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+
+          {mostrarSelector ? (
+            <div className="space-y-2">
+              <Select value="" onValueChange={elegirPlan}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Elegí un plan de estudios…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {planesDisponibles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nombre} · {p.version}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__xls__">Importar plan de estudio (XLS)…</SelectItem>
+                </SelectContent>
+              </Select>
+              {carreras.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAgregando(false);
+                    setShowPlanImport(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setAgregando(true)}>
+              <Plus className="size-4" /> Agregar carrera
+            </Button>
+          )}
+
+          
+        </CardContent>
+      </Card>
+
+      {/* 3) Importadores */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {showPlanImport && <div className="pt-1">{planImportDropzone}</div>}
+        <DropZone
+          tipo="historia"
+          label="Historia académica"
+          desc="Reportes → Historia académica → XLS"
+          icon={BarChart3}
+          loading={loading.historia}
+          done={done.historia}
+          onFile={handleFile}
+        />
+        {import.meta.env.DEV && (
+          <DropZone
+            tipo="oferta"
+            label="Oferta de materias"
+            desc="XLS con la oferta del cuatrimestre"
+            icon={CalendarDays}
+            loading={loading.oferta}
+            done={done.oferta}
+            onFile={handleFile}
+          />
+        )}
+      </div>
+
+      {/* 4) Cómo exportar del SIU */}
       <div className="rounded-lg border border-en-curso/20 bg-en-curso/10 px-4 py-3 text-sm">
         <strong className="text-en-curso">¿Cómo exportar desde SIU Guaraní?</strong>
         <ol className="mt-1 list-inside list-decimal text-muted-foreground">
@@ -125,69 +292,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
         </ol>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <DropZone
-          tipo="plan"
-          label="Plan de estudios"
-          desc="Reportes → Plan de estudios → XLS"
-          icon={FileText}
-          loading={loading.plan}
-          done={done.plan}
-          onFile={handleFile}
-        />
-        <DropZone
-          tipo="historia"
-          label="Historia académica"
-          desc="Reportes → Historia académica → XLS"
-          icon={BarChart3}
-          loading={loading.historia}
-          done={done.historia}
-          onFile={handleFile}
-        />
-        <DropZone
-          tipo="oferta"
-          label="Oferta de materias"
-          desc="XLS con la oferta del cuatrimestre"
-          icon={CalendarDays}
-          loading={loading.oferta}
-          done={done.oferta}
-          onFile={handleFile}
-        />
-      </div>
-
-      {/* Carreras importadas */}
-      {carreras.length > 0 && (
-        <Card>
-          <CardContent className="space-y-2 pt-6">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Carreras importadas
-            </div>
-            {carreras.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
-              >
-                <div>
-                  <div className="text-sm font-medium">{c.nombre}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.codigo && <>({c.codigo}) · </>}
-                    {c.materias.filter((m) => m.esPrincipal).length} materias
-                    {(() => {
-                      const cred = c.materias.filter((m) => !m.esPrincipal).length;
-                      return cred > 0 ? ` · ${cred} créditos/electivas` : "";
-                    })()}
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon-sm" onClick={() => removeCarrera(c.id)}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Backup + borrar */}
+      {/* 5) Backup + borrar */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={downloadBackup} disabled={!hasData}>
           <Download className="size-4" /> Exportar backup (JSON)
@@ -205,11 +310,6 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
             e.target.value = "";
           }}
         />
-        {!hasData && (
-          <Button variant="outline" onClick={handleMigrate}>
-            Recuperar datos del prototipo
-          </Button>
-        )}
         {hasData && (
           <Button variant="destructive" onClick={handleClear}>
             <Trash2 className="size-4" /> Borrar todos los datos

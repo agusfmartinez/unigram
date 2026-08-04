@@ -58,19 +58,22 @@ function StatCard({
   children?: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+      <CardHeader className="pb-1 sm:pb-2">
+        <CardTitle className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-xs">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {value !== undefined && (
-          <div className="text-3xl font-bold leading-none" style={color ? { color } : undefined}>
+          <div
+            className="text-2xl font-bold leading-none sm:text-3xl"
+            style={color ? { color } : undefined}
+          >
             {value}
           </div>
         )}
-        {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
+        {sub && <div className="mt-1 text-[11px] text-muted-foreground sm:text-xs">{sub}</div>}
         {children}
       </CardContent>
     </Card>
@@ -79,15 +82,15 @@ function StatCard({
 
 function AvanceCard({ titulo, pct, gradient }: { titulo: string; pct: number; gradient: string }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+      <CardHeader className="pb-1 sm:pb-2">
+        <CardTitle className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-xs">
           {titulo}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="mb-2 flex items-end justify-between">
-          <div className="text-3xl font-bold leading-none">
+          <div className="text-2xl font-bold leading-none sm:text-3xl">
             {pct}%
             <span className="ml-1 text-sm font-normal text-muted-foreground">logrado</span>
           </div>
@@ -104,16 +107,23 @@ function AvanceCard({ titulo, pct, gradient }: { titulo: string; pct: number; gr
   );
 }
 
-const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const TURNOS: { id: Turno; label: string; horas: string }[] = [
   { id: "manana", label: "Mañana", horas: "08–12 hs" },
   { id: "tarde", label: "Tarde", horas: "14–18 hs" },
   { id: "noche", label: "Noche", horas: "18–22 hs" },
 ];
-export function Dashboard() {
+export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) {
   const carrera = useActiveCarrera();
   const alumno = useAppStore((s) => s.alumno);
+  const setFocusMateria = useAppStore((s) => s.setFocusMateria);
   const [editCursada, setEditCursada] = useState<Materia | null>(null);
+
+  // Ir al Plan de Estudios y resaltar la materia.
+  const irAPlan = (codigo: string) => {
+    setFocusMateria(codigo);
+    onNavigate?.("plan");
+  };
 
   const materias = carrera?.materias ?? [];
   const correlatividades = carrera?.correlatividades ?? {};
@@ -121,7 +131,8 @@ export function Dashboard() {
   const stats = useMemo(() => {
     const principales = materias.filter((m) => m.esPrincipal);
     const aprobadas = principales.filter((m) => estaAprobada(m.estado));
-    const enCurso = principales.filter((m) => m.estado === "en_curso");
+    // En curso incluye ACA/AU: son materias que se cursan y ocupan un día.
+    const enCurso = materias.filter((m) => m.estado === "en_curso");
     const pendientes = principales.filter((m) => m.estado === "pendiente");
 
     // Notas del plan (solo materias con nota numérica). Consistente con el resto.
@@ -345,13 +356,18 @@ export function Dashboard() {
               <TableBody>
                 {stats.pendientes.slice(0, 8).map((m) => {
                   const corrs = correlatividades[m.codigo] ?? [];
-                  const corrsOk = corrs.every((c) => {
+                  const habilitada = corrs.every((c) => {
                     const mat = materias.find((x) => x.codigo === c);
                     return mat ? estaAprobada(mat.estado) : false;
                   });
                   return (
-                    <TableRow key={m.id}>
-                      <TableCell>{m.nombre}</TableCell>
+                    <TableRow
+                      key={m.id}
+                      className="cursor-pointer"
+                      onClick={() => irAPlan(m.codigo)}
+                      title={`Ver ${m.nombre} en el Plan`}
+                    >
+                      <TableCell className="font-medium">{m.nombre}</TableCell>
                       <TableCell>
                         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                           {m.codigo}
@@ -359,11 +375,7 @@ export function Dashboard() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{m.anio}°</TableCell>
                       <TableCell>
-                        {corrs.length === 0 ? (
-                          <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
-                            Sin correlativas
-                          </Badge>
-                        ) : corrsOk ? (
+                        {habilitada ? (
                           <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
                             ✓ Habilitada
                           </Badge>
@@ -399,6 +411,9 @@ function WeeklyGrid({ materias }: { materias: Materia[] }) {
   const enCelda = (dia: string, t: Turno) =>
     conHorario.filter((m) => m.turno === t && m.dias!.includes(dia));
 
+  // Solo mostrar los turnos que tienen alguna materia en curso.
+  const turnosUsados = TURNOS.filter((t) => conHorario.some((m) => m.turno === t.id));
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
@@ -413,7 +428,7 @@ function WeeklyGrid({ materias }: { materias: Materia[] }) {
           </tr>
         </thead>
         <tbody>
-          {TURNOS.map((t) => (
+          {turnosUsados.map((t) => (
             <tr key={t.id}>
               <td className="border-b bg-muted/20 px-2 py-2 align-top">
                 <div className="font-semibold">{t.label}</div>

@@ -45,6 +45,8 @@ export function PlanEstudios() {
   const carrera = useActiveCarrera();
   const carreras = useAppStore((s) => s.carreras);
   const carreraActivaId = useAppStore((s) => s.carreraActivaId);
+  const focusMateria = useAppStore((s) => s.focusMateria);
+  const setFocusMateria = useAppStore((s) => s.setFocusMateria);
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [busqueda, setBusqueda] = useState("");
   const [soloTecnico, setSoloTecnico] = useState(false);
@@ -68,9 +70,20 @@ export function PlanEstudios() {
     setFlash(codigo);
   };
 
+  // Foco pedido desde otra página (ej. Dashboard → "Próximas materias").
+  useEffect(() => {
+    if (!focusMateria) return;
+    gotoMateria(focusMateria);
+    setFocusMateria(null);
+  }, [focusMateria, setFocusMateria]);
+
   useEffect(() => {
     if (!flash) return;
-    const el = document.getElementById(`mat-${flash}`);
+    // Elegir la fila/tarjeta visible (mobile o desktop según breakpoint).
+    const el =
+      [`mat-${flash}`, `mat-m-${flash}`]
+        .map((id) => document.getElementById(id))
+        .find((e) => e && e.offsetParent !== null) ?? document.getElementById(`mat-${flash}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
     const t = setTimeout(() => setFlash(null), 1400);
     return () => clearTimeout(t);
@@ -111,57 +124,78 @@ export function PlanEstudios() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="space-y-3">
         <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
-          <TabsList>
-            <TabsTrigger value="todas">Todas</TabsTrigger>
-            <TabsTrigger value="aprobado">Aprobadas</TabsTrigger>
-            <TabsTrigger value="en_curso">En curso</TabsTrigger>
-            <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
-            <TabsTrigger value="equivalencia">Equivalencias</TabsTrigger>
+          <TabsList className="w-full sm:w-max">
+            <TabsTrigger className="px-1.5 text-xs sm:px-2 sm:text-sm" value="todas">
+              Todas
+            </TabsTrigger>
+            <TabsTrigger className="px-1.5 text-xs sm:px-2 sm:text-sm" value="aprobado">
+              <span className="sm:hidden">Aprob.</span>
+              <span className="hidden sm:inline">Aprobadas</span>
+            </TabsTrigger>
+            <TabsTrigger className="px-1.5 text-xs sm:px-2 sm:text-sm" value="en_curso">
+              <span className="sm:hidden">Curso</span>
+              <span className="hidden sm:inline">En curso</span>
+            </TabsTrigger>
+            <TabsTrigger className="px-1.5 text-xs sm:px-2 sm:text-sm" value="pendiente">
+              <span className="sm:hidden">Pend.</span>
+              <span className="hidden sm:inline">Pendientes</span>
+            </TabsTrigger>
+            <TabsTrigger className="px-1.5 text-xs sm:px-2 sm:text-sm" value="equivalencia">
+              <span className="sm:hidden">Equiv.</span>
+              <span className="hidden sm:inline">Equivalencias</span>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative max-w-60 flex-1">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-8"
-            placeholder="Buscar materia..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
-        <Button
-          variant={soloTecnico ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSoloTecnico((v) => !v)}
-          className={soloTecnico ? "bg-chart-purple hover:bg-chart-purple/90 text-white" : ""}
-        >
-          Título Intermedio - Técnico
-        </Button>
-        {porAnio.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative w-full sm:max-w-60 sm:flex-1">
+            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Buscar materia..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
           <Button
-            variant="outline"
+            variant={soloTecnico ? "default" : "outline"}
             size="sm"
-            onClick={() => {
-              const anios = porAnio.map((a) => a.anio);
-              const todosColapsados = anios.every((a) => colapsados.has(a));
-              setColapsados(todosColapsados ? new Set() : new Set(anios));
-            }}
+            onClick={() => setSoloTecnico((v) => !v)}
+            className={cn(
+              "flex-1 sm:flex-none",
+              soloTecnico && "bg-chart-purple hover:bg-chart-purple/90 text-white",
+            )}
           >
-            {porAnio.every((a) => colapsados.has(a.anio)) ? "Abrir todo" : "Colapsar todo"}
+            <span className="sm:hidden">Tít. Intermedio</span>
+            <span className="hidden sm:inline">Título Intermedio - Técnico</span>
           </Button>
-        )}
+          {porAnio.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 sm:flex-none"
+              onClick={() => {
+                const anios = porAnio.map((a) => a.anio);
+                const todosColapsados = anios.every((a) => colapsados.has(a));
+                setColapsados(todosColapsados ? new Set() : new Set(anios));
+              }}
+            >
+              {porAnio.every((a) => colapsados.has(a.anio)) ? "Abrir todo" : "Colapsar todo"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {porAnio.map(({ anio, mats }) => (
-        <Card key={anio}>
+        <Card key={anio} className="gap-3 py-3 sm:gap-6 sm:py-6">
           <CardHeader
-            className="flex cursor-pointer flex-row items-center justify-between gap-3 space-y-0"
+            className="flex cursor-pointer flex-row items-center justify-between gap-3 space-y-0 px-3 sm:px-6"
             onClick={() => toggleAnio(anio)}
           >
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold">{anio}° Año</span>
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <span className="text-xs font-semibold sm:text-sm">{anio}° Año</span>
+              <div className="flex flex-wrap gap-1.5 text-[10px] sm:gap-2 sm:text-xs">
                 <Badge variant="secondary">{mats.length} total</Badge>
                 <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
                   {mats.filter((m) => estaAprobada(m.estado)).length} aprobadas
@@ -193,8 +227,8 @@ export function PlanEstudios() {
             )}
           >
             <div className="overflow-hidden">
-          <CardContent>
-            <Table className="table-fixed">
+          <CardContent className="px-2 sm:px-6">
+            <Table className="table-fixed min-w-[820px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Materia</TableHead>
@@ -217,7 +251,9 @@ export function PlanEstudios() {
                     >
                       <TableCell className="font-medium align-top">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="break-words whitespace-normal">{m.nombre}</span>
+                          <span className="whitespace-normal break-words text-[11px] leading-snug sm:text-sm">
+                            {m.nombre}
+                          </span>
                           {m.tituloIntermedio && (
                             <Badge
                               variant="outline"

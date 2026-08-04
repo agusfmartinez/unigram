@@ -31,7 +31,10 @@ export const NAV: NavItem[] = [
   { id: "creditos", label: "Créditos y electivas", icon: Award, section: "carrera" },
   { id: "historia", label: "Historia Académica", icon: History, section: "carrera" },
   { id: "correlatividades", label: "Correlatividades", icon: Network, section: "carrera" },
-  { id: "oferta", label: "Oferta de Materias", icon: CalendarDays, section: "herramientas" },
+  // Oferta de materias: en desarrollo, solo visible en dev.
+  ...(import.meta.env.DEV
+    ? [{ id: "oferta", label: "Oferta de Materias", icon: CalendarDays, section: "herramientas" } as NavItem]
+    : []),
   { id: "importar", label: "Importar datos", icon: Upload, section: "herramientas" },
 ];
 

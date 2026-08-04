@@ -13,21 +13,30 @@ import { HistoriaAcademica } from "@/pages/HistoriaAcademica";
 import { Correlatividades } from "@/pages/Correlatividades";
 import { Oferta } from "@/pages/Oferta";
 import { Importar } from "@/pages/Importar";
-import { useHasData } from "@/store/useAppStore";
+import { useAppStore, useHasData } from "@/store/useAppStore";
 
 export default function App() {
   const hasData = useHasData();
+  const seedLoaded = useAppStore((s) => s.seedLoaded);
+  const loadSeed = useAppStore((s) => s.loadSeed);
+  const carrerasCount = useAppStore((s) => s.carreras.length);
   const [page, setPage] = useState<PageId>("importar");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [booted, setBooted] = useState(false);
 
-  // Al abrir por primera vez con datos persistidos, ir al dashboard.
+  // Al abrir por primera vez: si el store está vacío, cargar la plantilla por
+  // default (Licenciatura). Luego ir al dashboard si hay datos.
   useEffect(() => {
     if (booted) return;
-    if (hasData) setPage("dashboard");
+    if (!seedLoaded && carrerasCount === 0) {
+      loadSeed();
+      setPage("dashboard");
+    } else if (hasData) {
+      setPage("dashboard");
+    }
     setBooted(true);
-  }, [hasData, booted]);
+  }, [booted, hasData, seedLoaded, carrerasCount, loadSeed]);
 
   // Resetear scroll al cambiar de página.
   useEffect(() => {
@@ -44,7 +53,7 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case "dashboard":
-        return <Dashboard />;
+        return <Dashboard onNavigate={navigate} />;
       case "plan":
         return <PlanEstudios />;
       case "creditos":
@@ -54,7 +63,7 @@ export default function App() {
       case "correlatividades":
         return <Correlatividades />;
       case "oferta":
-        return <Oferta />;
+        return import.meta.env.DEV ? <Oferta /> : <Dashboard />;
       case "importar":
         return <Importar onNavigate={navigate} />;
     }
@@ -81,7 +90,7 @@ export default function App() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-8">
           {/* Mobile menu */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>

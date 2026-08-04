@@ -76,13 +76,13 @@ function GrupoCard({
   if (items.length === 0) return null;
 
   return (
-    <Card>
+    <Card className="gap-3 py-3 sm:gap-6 sm:py-6">
       <CardHeader
-        className="flex cursor-pointer flex-row items-center justify-between gap-3 space-y-0"
+        className="flex cursor-pointer flex-row items-center justify-between gap-3 space-y-0 px-3 sm:px-6"
         onClick={() => setOpen((v) => !v)}
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold">{titulo}</span>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <span className="text-xs font-semibold sm:text-sm">{titulo}</span>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{items.length} total</Badge>
             {obtenidas > 0 && (
@@ -108,8 +108,8 @@ function GrupoCard({
         )}
       >
         <div className="overflow-hidden">
-          <CardContent>
-            <Table className="table-fixed">
+          <CardContent className="px-2 sm:px-6">
+            <Table className="table-fixed min-w-[560px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Actividad</TableHead>
@@ -204,15 +204,8 @@ export function Creditos() {
         <CreditoProgreso titulo="Título de grado" obtenidos={obtenidos} meta={30} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant={soloAprobadas ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSoloAprobadas((v) => !v)}
-        >
-          {soloAprobadas ? "Solo aprobadas" : "Todas"}
-        </Button>
-        <div className="relative max-w-60 flex-1">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="relative order-1 w-full sm:order-none sm:max-w-60 sm:flex-1">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-8"
@@ -221,7 +214,18 @@ export function Creditos() {
             onChange={(e) => setBusqueda(e.target.value)}
           />
         </div>
-        <Badge variant="outline" className="bg-aprobado/15 text-aprobado border-aprobado/20">
+        <Button
+          variant={soloAprobadas ? "default" : "outline"}
+          size="sm"
+          className="order-2 flex-1 sm:order-none sm:flex-none"
+          onClick={() => setSoloAprobadas((v) => !v)}
+        >
+          {soloAprobadas ? "Solo aprobadas" : "Todas"}
+        </Button>
+        <Badge
+          variant="outline"
+          className="order-3 bg-aprobado/15 text-aprobado border-aprobado/20 sm:order-none"
+        >
           {obtenidos} créditos obtenidos
         </Badge>
       </div>
