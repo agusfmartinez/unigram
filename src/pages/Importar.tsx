@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   Loader2,
   Plus,
+  Cloud,
+  CloudUpload,
+  CloudDownload,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,12 @@ import { parseHistoriaAcademica } from "@/lib/parsers/parseHistoriaAcademica";
 import { parseOferta } from "@/lib/parsers/parseOferta";
 import { useAppStore, useHasData } from "@/store/useAppStore";
 import { SEED_PLANES } from "@/data/seedCarrera";
+import {
+  isDriveConfigured,
+  connectDrive,
+  saveToDrive,
+  loadFromDrive,
+} from "@/lib/googleDrive";
 import type { PageId } from "@/components/layout/nav";
 
 type Tipo = "plan" | "historia" | "oferta";
@@ -148,6 +157,54 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     if (window.confirm("¿Borrar TODOS los datos guardados? Esta acción no se puede deshacer.")) {
       clearAll();
       setDone({ plan: false, historia: false, oferta: false });
+    }
+  };
+
+  // ─── Google Drive (backup en la cuenta personal) ──────────────────────────
+  const driveOn = isDriveConfigured();
+  const [driveBusy, setDriveBusy] = useState<null | "connect" | "save" | "load">(null);
+  const [driveConectado, setDriveConectado] = useState(false);
+
+  const conectarDrive = async () => {
+    try {
+      setDriveBusy("connect");
+      await connectDrive();
+      setDriveConectado(true);
+    } catch (e) {
+      window.alert("No se pudo conectar con Google Drive: " + (e as Error).message);
+    } finally {
+      setDriveBusy(null);
+    }
+  };
+
+  const guardarEnDrive = async () => {
+    try {
+      setDriveBusy("save");
+      await saveToDrive(exportBackup());
+      setDriveConectado(true);
+      window.alert("Backup guardado en tu Google Drive.");
+    } catch (e) {
+      window.alert("No se pudo guardar en Drive: " + (e as Error).message);
+    } finally {
+      setDriveBusy(null);
+    }
+  };
+
+  const restaurarDeDrive = async () => {
+    try {
+      setDriveBusy("load");
+      const res = await loadFromDrive();
+      setDriveConectado(true);
+      if (!res) {
+        window.alert("Todavía no hay ningún backup en tu Drive.");
+        return;
+      }
+      if (importBackup(res.json)) onNavigate("dashboard");
+      else window.alert("El backup de Drive no es válido.");
+    } catch (e) {
+      window.alert("No se pudo restaurar desde Drive: " + (e as Error).message);
+    } finally {
+      setDriveBusy(null);
     }
   };
 
@@ -292,7 +349,66 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
         </ol>
       </div>
 
-      {/* 5) Backup + borrar */}
+      {/* 5) Sincronizar con Google Drive */}
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Cloud className="size-4" /> Sincronizar con Google Drive
+          </div>
+          {driveOn ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Guardá un backup en tu cuenta de Google y restauralo en cualquier dispositivo.
+                {driveConectado && (
+                  <span className="ml-1 text-aprobado">· Conectado ✓</span>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={guardarEnDrive}
+                  disabled={driveBusy !== null || !hasData}
+                >
+                  {driveBusy === "save" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CloudUpload className="size-4" />
+                  )}
+                  Guardar en Drive
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={restaurarDeDrive}
+                  disabled={driveBusy !== null}
+                >
+                  {driveBusy === "load" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CloudDownload className="size-4" />
+                  )}
+                  Restaurar de Drive
+                </Button>
+                {!driveConectado && (
+                  <Button variant="ghost" onClick={conectarDrive} disabled={driveBusy !== null}>
+                    {driveBusy === "connect" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    Conectar cuenta
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Función no configurada. Falta la variable{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono">VITE_GOOGLE_CLIENT_ID</code>{" "}
+              con el OAuth Client ID de Google.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 6) Backup + borrar */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={downloadBackup} disabled={!hasData}>
           <Download className="size-4" /> Exportar backup (JSON)
