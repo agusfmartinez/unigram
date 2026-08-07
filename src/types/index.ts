@@ -21,10 +21,29 @@ export interface Materia {
   esPrincipal: boolean; // true si es materia del plan principal (no crédito/genérica)
   fecha?: string; // fecha de aprobación (DD/MM/YYYY), editable a mano
   tituloIntermedio?: boolean; // true si cuenta para el título intermedio (Técnico en Programación)
-  // Datos de cursada (solo para materias en curso), cargados a mano:
+}
+
+/**
+ * Datos de cursada de una materia en curso, cargados a mano. Viven aparte de la
+ * Materia (en `Carrera.cursadas`, por id de materia) para no "manchar" el plan:
+ * son temporales al cuatrimestre y se borran al dejar de cursar.
+ */
+export interface Cursada {
   comision?: string;
   dias?: string[]; // "Lunes", "Miércoles", ...
   turno?: Turno;
+  aula?: string;
+  profesores?: string; // texto libre
+  parcial1?: string; // resultado del 1er parcial ("8", "Ausente")
+  parcial2?: string;
+  recuperatorio1?: string; // opcional
+  recuperatorio2?: string; // opcional
+  final?: string; // nota del final (opcional)
+  fechaParcial1?: string; // DD/MM/YYYY
+  fechaParcial2?: string;
+  fechaRecuperatorio1?: string;
+  fechaRecuperatorio2?: string;
+  fechaExamen?: string; // fecha del examen final (DD/MM/YYYY)
 }
 
 /** Entrada del historial académico (SIU la exporta sin distinción de carrera). */
@@ -69,11 +88,13 @@ export interface Carrera {
   materias: Materia[];
   /** Correlatividades por código de materia. Editable por el usuario. */
   correlatividades: Record<string, string[]>;
+  /** Datos de cursada por id de materia (solo las que están en curso). */
+  cursadas: Record<string, Cursada>;
   importadaEn: string; // ISO date string
 }
 
 /** Resultado del parseo del XLS de plan de estudios. */
 export interface PlanParseResult {
-  carrera: Omit<Carrera, "id" | "correlatividades" | "importadaEn">;
+  carrera: Omit<Carrera, "id" | "correlatividades" | "cursadas" | "importadaEn">;
   alumno: Alumno | null;
 }

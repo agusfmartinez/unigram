@@ -11,6 +11,7 @@ import { PlanEstudios } from "@/pages/PlanEstudios";
 import { Creditos } from "@/pages/Creditos";
 import { HistoriaAcademica } from "@/pages/HistoriaAcademica";
 import { Correlatividades } from "@/pages/Correlatividades";
+import { Calendario } from "@/pages/Calendario";
 import { Oferta } from "@/pages/Oferta";
 import { Importar } from "@/pages/Importar";
 import { useAppStore, useHasData } from "@/store/useAppStore";
@@ -62,6 +63,8 @@ export default function App() {
         return <HistoriaAcademica />;
       case "correlatividades":
         return <Correlatividades />;
+      case "calendario":
+        return <Calendario />;
       case "oferta":
         return import.meta.env.DEV ? <Oferta /> : <Dashboard />;
       case "importar":

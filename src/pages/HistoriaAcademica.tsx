@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
-import { notaColorVar, estaAprobada } from "@/lib/estado";
+import { notaColorVar, estaAprobada, colorPromedio } from "@/lib/estado";
 import { useActiveCarrera } from "@/store/useAppStore";
 import type { EstadoMateria, Nota } from "@/types";
 
@@ -99,7 +99,7 @@ export function HistoriaAcademica() {
           title="Promedio general"
           value={promedio}
           sub={`sobre ${calificaciones} calificaciones`}
-          color={notaColorVar(parseFloat(promedio) || null)}
+          color={calificaciones > 0 ? colorPromedio(parseFloat(promedio)) : undefined}
         />
         <StatCard title="Avance de carrera" value={`${pct}%`}>
           <div className="mt-3">
@@ -251,7 +251,10 @@ function MetricBox({
           <strong className="text-lg">{count}</strong> materias
         </span>
         <span className="text-sm text-muted-foreground">
-          prom <strong style={{ color: notaColorVar(parseFloat(prom) || null) }}>{prom}</strong>
+          prom{" "}
+          <strong style={{ color: prom === "—" ? undefined : colorPromedio(parseFloat(prom)) }}>
+            {prom}
+          </strong>
         </span>
       </div>
     </div>

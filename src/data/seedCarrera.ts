@@ -252,6 +252,7 @@ export const SEED_CARRERA: Carrera = {
   universidad: "Universidad Nacional de Hurlingham",
   materias,
   correlatividades,
+  cursadas: {},
   importadaEn: "2026-07-28T00:00:00.000Z",
 };
 

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import type {
   Alumno,
   Carrera,
+  Cursada,
   EntradaHistoria,
   Materia,
   MateriaOferta,
@@ -43,6 +44,22 @@ const masReciente = (a: EntradaHistoria, b: EntradaHistoria) =>
   fechaKey(b.fecha).localeCompare(fechaKey(a.fecha));
 
 /**
+ * Descarta datos de cursada de materias que ya no están en curso. Las cursadas
+ * viven aparte del plan y solo tienen sentido mientras estado === "en_curso".
+ */
+function prunearCursadas(
+  materias: Materia[],
+  cursadas: Record<string, Cursada>,
+): Record<string, Cursada> {
+  const enCurso = new Set(materias.filter((m) => m.estado === "en_curso").map((m) => m.id));
+  const out: Record<string, Cursada> = {};
+  for (const [id, c] of Object.entries(cursadas)) {
+    if (enCurso.has(id)) out[id] = c;
+  }
+  return out;
+}
+
+/**
  * Cruza la historia académica sobre las materias de un plan. Solo produce los
  * 4 estados: aprobado, equivalencia, en_curso, pendiente. Prioridad:
  * aprobado-con-nota → equivalencia → aprobado-sin-nota → en curso.
@@ -69,12 +86,41 @@ function mergeEstados(materias: Materia[], historia: EntradaHistoria[]): Materia
     if (entries.some(esEnCurso)) return { ...m, estado: "en_curso" };
 
     // El import no marca esta materia como cursada/aprobada. La historia nueva
-    // manda: si venía "en curso", se limpia (dejó de cursarse) junto con su
-    // comisión/días/turno. Aprobadas y equivalencias previas no se tocan.
-    if (m.estado === "en_curso")
-      return { ...m, estado: "pendiente", comision: undefined, dias: undefined, turno: undefined };
+    // manda: si venía "en curso", vuelve a pendiente. Su cursada (aparte) se
+    // limpia con prunearCursadas. Aprobadas y equivalencias previas no se tocan.
+    if (m.estado === "en_curso") return { ...m, estado: "pendiente" };
     return m;
   });
+}
+
+const CURSADA_KEYS = [
+  "comision", "dias", "turno", "aula", "profesores",
+  "parcial1", "parcial2", "fechaParcial1", "fechaParcial2", "fechaExamen",
+] as const;
+
+/**
+ * Normaliza una carrera al modelo con `cursadas` aparte. Migra el modelo viejo
+ * (campos de cursada dentro de cada materia) moviéndolos a `carrera.cursadas`
+ * por id de materia, y los quita de la materia. Idempotente.
+ */
+function migrarCarrera(c: Carrera): Carrera {
+  if (c.cursadas && typeof c.cursadas === "object") return c;
+  const cursadas: Record<string, Cursada> = {};
+  const materias = (c.materias ?? []).map((m) => {
+    const mm = m as Materia & Record<string, unknown>;
+    const cur: Cursada = {};
+    let hasAny = false;
+    for (const k of CURSADA_KEYS) {
+      if (mm[k] !== undefined) {
+        (cur as Record<string, unknown>)[k] = mm[k];
+        delete mm[k];
+        hasAny = true;
+      }
+    }
+    if (hasAny && m.estado === "en_curso") cursadas[m.id] = cur;
+    return mm as Materia;
+  });
+  return { ...c, materias, cursadas };
 }
 
 export type ImportPlanResult =
@@ -103,6 +149,7 @@ interface AppState {
   importOferta: (list: MateriaOferta[]) => void;
   setCarreraActiva: (id: string) => void;
   updateMateria: (carreraId: string, materiaId: string, patch: Partial<Materia>) => void;
+  updateCursada: (carreraId: string, materiaId: string, patch: Partial<Cursada>) => void;
   updateCorrelatividades: (carreraId: string, map: Record<string, string[]>) => void;
   removeCarrera: (id: string) => void;
   clearAll: () => void;
@@ -133,11 +180,13 @@ export const useAppStore = create<AppState>()(
           set({ carreraActivaId: plan.id, seedLoaded: true });
           return "exists";
         }
+        const materias = mergeEstados(plan.materias, historia);
         const carrera: Carrera = {
           ...plan,
           importadaEn: new Date().toISOString(),
           // Cruzar la historia ya importada sobre el plan nuevo.
-          materias: mergeEstados(plan.materias, historia),
+          materias,
+          cursadas: prunearCursadas(materias, plan.cursadas ?? {}),
         };
         set({
           carreras: [...carreras, carrera],
@@ -159,14 +208,16 @@ export const useAppStore = create<AppState>()(
           return { status: "conflict", id, nombre: base.nombre };
         }
 
+        const materias = mergeEstados(base.materias, historia);
         const nueva: Carrera = {
           ...base,
           id,
           correlatividades: existe
             ? existe.correlatividades
             : seedCorrelatividades(base.nombre, base.codigo),
+          cursadas: prunearCursadas(materias, existe?.cursadas ?? {}),
           importadaEn: new Date().toISOString(),
-          materias: mergeEstados(base.materias, historia),
+          materias,
         };
 
         set({
@@ -184,10 +235,10 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           historia: entradas,
           alumno: alumno ?? s.alumno,
-          carreras: s.carreras.map((c) => ({
-            ...c,
-            materias: mergeEstados(c.materias, entradas),
-          })),
+          carreras: s.carreras.map((c) => {
+            const materias = mergeEstados(c.materias, entradas);
+            return { ...c, materias, cursadas: prunearCursadas(materias, c.cursadas) };
+          }),
         }));
       },
 
@@ -197,13 +248,30 @@ export const useAppStore = create<AppState>()(
 
       updateMateria: (cid, materiaId, patch) =>
         set((s) => ({
+          carreras: s.carreras.map((c) => {
+            if (c.id !== cid) return c;
+            const materias = c.materias.map((m) =>
+              m.id === materiaId ? { ...m, ...patch } : m,
+            );
+            // Si la materia dejó de estar en curso, se borra su cursada.
+            const cursadas =
+              patch.estado && patch.estado !== "en_curso"
+                ? prunearCursadas(materias, c.cursadas)
+                : c.cursadas;
+            return { ...c, materias, cursadas };
+          }),
+        })),
+
+      updateCursada: (cid, materiaId, patch) =>
+        set((s) => ({
           carreras: s.carreras.map((c) =>
             c.id === cid
               ? {
                   ...c,
-                  materias: c.materias.map((m) =>
-                    m.id === materiaId ? { ...m, ...patch } : m,
-                  ),
+                  cursadas: {
+                    ...c.cursadas,
+                    [materiaId]: { ...c.cursadas[materiaId], ...patch },
+                  },
                 }
               : c,
           ),
@@ -249,7 +317,7 @@ export const useAppStore = create<AppState>()(
           const data = JSON.parse(json);
           if (!Array.isArray(data.carreras)) return false;
           set({
-            carreras: data.carreras,
+            carreras: (data.carreras as Carrera[]).map(migrarCarrera),
             carreraActivaId: data.carreraActivaId ?? data.carreras[0]?.id ?? null,
             historia: data.historia ?? [],
             oferta: data.oferta ?? [],
@@ -263,7 +331,15 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "tup-tracker-state",
-      version: 1,
+      version: 2,
+      // v1→v2: mover datos de cursada de la materia a `carrera.cursadas`.
+      migrate: (persisted) => {
+        const s = persisted as { carreras?: Carrera[] } | undefined;
+        if (s && Array.isArray(s.carreras)) {
+          s.carreras = s.carreras.map(migrarCarrera);
+        }
+        return s as AppState;
+      },
     },
   ),
 );

@@ -4,6 +4,7 @@ import {
   History,
   Network,
   CalendarDays,
+  CalendarRange,
   Upload,
   Award,
   type LucideIcon,
@@ -15,6 +16,7 @@ export type PageId =
   | "creditos"
   | "historia"
   | "correlatividades"
+  | "calendario"
   | "oferta"
   | "importar";
 
@@ -31,6 +33,7 @@ export const NAV: NavItem[] = [
   { id: "creditos", label: "Créditos y electivas", icon: Award, section: "carrera" },
   { id: "historia", label: "Historia Académica", icon: History, section: "carrera" },
   { id: "correlatividades", label: "Correlatividades", icon: Network, section: "carrera" },
+  { id: "calendario", label: "Calendario", icon: CalendarRange, section: "carrera" },
   // Oferta de materias: en desarrollo, solo visible en dev.
   ...(import.meta.env.DEV
     ? [{ id: "oferta", label: "Oferta de Materias", icon: CalendarDays, section: "herramientas" } as NavItem]
@@ -44,6 +47,7 @@ export const PAGE_META: Record<PageId, { title: string; sub: string }> = {
   creditos: { title: "Créditos y electivas", sub: "Actividades extracurriculares y materias genéricas" },
   historia: { title: "Historia Académica", sub: "Tus aprobaciones y notas" },
   correlatividades: { title: "Correlatividades", sub: "Mapa de dependencias entre materias" },
+  calendario: { title: "Calendario", sub: "Exámenes y días de cursada" },
   oferta: { title: "Oferta de Materias", sub: "Materias disponibles este cuatrimestre" },
   importar: { title: "Importar Datos", sub: "Cargá tus archivos del SIU Guaraní" },
 };

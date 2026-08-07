@@ -10,6 +10,15 @@ export function notaColorVar(nota: Nota | number | null | undefined): string {
   return "var(--chart-red)";
 }
 
+/**
+ * Redondeo de promedios: ≥ .5 sube, ≤ .4 baja (redondeo estándar al entero).
+ */
+export const redondearPromedio = (n: number): number => Math.round(n);
+
+/** Color del promedio: menor a 7 en rojo, si no verde. */
+export const colorPromedio = (n: number): string =>
+  n < 7 ? "var(--chart-red)" : "var(--aprobado)";
+
 export interface EstadoMeta {
   label: string;
   /** clases tailwind para el <Badge> */
