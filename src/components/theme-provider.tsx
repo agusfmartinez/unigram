@@ -9,7 +9,18 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "tup-theme";
+const STORAGE_KEY = "unigram-theme";
+
+// Migración de la clave vieja (tup-theme → unigram-theme) y limpieza.
+try {
+  const viejo = localStorage.getItem("tup-theme");
+  if (viejo) {
+    if (!localStorage.getItem(STORAGE_KEY)) localStorage.setItem(STORAGE_KEY, viejo);
+    localStorage.removeItem("tup-theme");
+  }
+} catch {
+  /* storage no disponible */
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
