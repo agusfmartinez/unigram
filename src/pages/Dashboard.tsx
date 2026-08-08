@@ -446,7 +446,10 @@ function ProximosEventos({
   const fin = parseFechaDate(carrera.cuatrimestreFin);
   const dentroCuatri = (d: Date) => (!inicio || d >= inicio) && (!fin || d <= fin);
 
-  type Ev = { dias: number; texto: string; tipo: "examen" | "cursada" };
+  const ddmm = (d: Date) =>
+    `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  type Ev = { dias: number; fecha: string; texto: string; tipo: "examen" | "cursada" };
   const eventos: Ev[] = [];
 
   for (const m of materias) {
@@ -455,7 +458,7 @@ function ProximosEventos({
 
     // Cursada de hoy (dentro del cuatrimestre).
     if (c.dias?.includes(DIAS_SEMANA[hoy.getDay()]) && dentroCuatri(hoy)) {
-      eventos.push({ dias: 0, texto: `Hoy cursás ${m.nombre}`, tipo: "cursada" });
+      eventos.push({ dias: 0, fecha: ddmm(hoy), texto: `Hoy cursás ${m.nombre}`, tipo: "cursada" });
     }
 
     // Exámenes futuros.
@@ -470,7 +473,8 @@ function ProximosEventos({
       const dt = parseFechaDate(f);
       if (!dt) continue;
       const dias = Math.round((dt.getTime() - hoy.getTime()) / DIA_MS);
-      if (dias >= 0) eventos.push({ dias, texto: `${label} · ${m.nombre}`, tipo: "examen" });
+      if (dias >= 0)
+        eventos.push({ dias, fecha: ddmm(dt), texto: `${label} · ${m.nombre}`, tipo: "examen" });
     }
   }
 
@@ -479,8 +483,22 @@ function ProximosEventos({
 
   if (lista.length === 0) return null;
 
-  const cuando = (dias: number) =>
-    dias === 0 ? "Hoy" : dias === 1 ? "Mañana" : `En ${dias} días`;
+  // Días restantes → "Faltan 2 meses y 3 semanas" (hasta 2 unidades, redondeado).
+  const cuando = (dias: number) => {
+    if (dias === 0) return "Hoy";
+    if (dias === 1) return "Mañana";
+    const meses = Math.floor(dias / 30);
+    const resto = dias % 30;
+    const semanas = Math.floor(resto / 7);
+    const d = resto % 7;
+    const partes: string[] = [];
+    if (meses) partes.push(`${meses} ${meses === 1 ? "mes" : "meses"}`);
+    if (semanas) partes.push(`${semanas} ${semanas === 1 ? "semana" : "semanas"}`);
+    if (d) partes.push(`${d} ${d === 1 ? "día" : "días"}`);
+    const top = partes.slice(0, 2);
+    const verbo = top.length === 1 && top[0].startsWith("1 ") ? "Falta" : "Faltan";
+    return `${verbo} ${top.join(" y ")}`;
+  };
 
   return (
     <Card>
@@ -500,7 +518,9 @@ function ProximosEventos({
                 className="inline-block size-2 shrink-0 rounded-full"
                 style={{ background: ev.tipo === "examen" ? "var(--warning)" : "var(--en-curso)" }}
               />
-              <span className="break-words">{ev.texto}</span>
+              <span className="break-words">
+                <span className="font-mono text-muted-foreground">{ev.fecha}</span> {ev.texto}
+              </span>
             </div>
             <Badge
               variant="outline"
