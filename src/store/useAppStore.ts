@@ -334,13 +334,16 @@ export const useAppStore = create<AppState>()(
         }),
 
       clearAll: () =>
+        // updatedAt vacío: borrar datos deja el dispositivo "fresco". Así el
+        // próximo sync trae de Drive en vez de pisar la nube con el vacío.
         set({
           carreras: [],
           carreraActivaId: null,
           historia: [],
           oferta: [],
           alumno: null,
-          updatedAt: new Date().toISOString(),
+          seedLoaded: false,
+          updatedAt: "",
         }),
 
       exportBackup: () => {
