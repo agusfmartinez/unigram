@@ -10,8 +10,6 @@ import {
   Loader2,
   Plus,
   Cloud,
-  CloudUpload,
-  CloudDownload,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,15 +37,34 @@ import { parseHistoriaAcademica } from "@/lib/parsers/parseHistoriaAcademica";
 import { parseOferta } from "@/lib/parsers/parseOferta";
 import { useAppStore, useHasData } from "@/store/useAppStore";
 import { SEED_PLANES } from "@/data/seedCarrera";
-import {
-  isDriveConfigured,
-  connectDrive,
-  saveToDrive,
-  loadFromDrive,
-} from "@/lib/googleDrive";
+import { isDriveConfigured, saveToDrive, loadFromDrive } from "@/lib/googleDrive";
 import type { PageId } from "@/components/layout/nav";
 
 type Tipo = "plan" | "historia" | "oferta";
+
+/** Logo "G" de Google (multicolor). */
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
 
 export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
   const importPlan = useAppStore((s) => s.importPlan);
@@ -189,51 +206,48 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     }
   };
 
-  // ─── Google Drive (backup en la cuenta personal) ──────────────────────────
+  // ─── Google Drive: un solo botón que sincroniza por fecha ──────────────────
   const driveOn = isDriveConfigured();
-  const [driveBusy, setDriveBusy] = useState<null | "connect" | "save" | "load">(null);
-  const [driveConectado, setDriveConectado] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
 
-  const conectarDrive = async () => {
+  const sincronizarDrive = async () => {
     try {
-      setDriveBusy("connect");
-      await connectDrive();
-      setDriveConectado(true);
-    } catch (e) {
-      setAviso("No se pudo conectar con Google Drive: " + (e as Error).message);
-    } finally {
-      setDriveBusy(null);
-    }
-  };
+      setDriveBusy(true);
+      const res = await loadFromDrive(); // pide token + baja el backup de Drive
+      const localTs = useAppStore.getState().updatedAt || "";
 
-  const guardarEnDrive = async () => {
-    try {
-      setDriveBusy("save");
-      await saveToDrive(exportBackup());
-      setDriveConectado(true);
-      setAviso("Backup guardado en tu Google Drive.");
-    } catch (e) {
-      setAviso("No se pudo guardar en Drive: " + (e as Error).message);
-    } finally {
-      setDriveBusy(null);
-    }
-  };
-
-  const restaurarDeDrive = async () => {
-    try {
-      setDriveBusy("load");
-      const res = await loadFromDrive();
-      setDriveConectado(true);
       if (!res) {
-        setAviso("Todavía no hay ningún backup en tu Drive.");
+        // No hay nada en Drive todavía → subir lo local.
+        await saveToDrive(exportBackup());
+        setAviso("Sincronizado: se subió tu backup a Google Drive.");
         return;
       }
-      if (importBackup(res.json)) onNavigate("dashboard");
-      else setAviso("El backup de Drive no es válido.");
+
+      let remoteTs = "";
+      try {
+        remoteTs = (JSON.parse(res.json).updatedAt as string) || "";
+      } catch {
+        /* backup viejo sin fecha */
+      }
+
+      if (remoteTs > localTs) {
+        // Drive más reciente → traer.
+        importBackup(res.json);
+        setAviso("Datos actualizados desde Google Drive.");
+        onNavigate("dashboard");
+      } else if (localTs > remoteTs) {
+        // Local más reciente → subir.
+        await saveToDrive(exportBackup());
+        setAviso("Google Drive actualizado con tus cambios.");
+      } else {
+        // Iguales → asegurar copia en Drive.
+        await saveToDrive(exportBackup());
+        setAviso("Sincronización finalizada.");
+      }
     } catch (e) {
-      setAviso("No se pudo restaurar desde Drive: " + (e as Error).message);
+      setAviso("No se pudo sincronizar con Google Drive: " + (e as Error).message);
     } finally {
-      setDriveBusy(null);
+      setDriveBusy(false);
     }
   };
 
@@ -388,44 +402,15 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
             <>
               <p className="text-xs text-muted-foreground">
                 Guardá un backup en tu cuenta de Google y restauralo en cualquier dispositivo.
-                {driveConectado && (
-                  <span className="ml-1 text-aprobado">· Conectado ✓</span>
-                )}
               </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={guardarEnDrive}
-                  disabled={driveBusy !== null || !hasData}
-                >
-                  {driveBusy === "save" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CloudUpload className="size-4" />
-                  )}
-                  Guardar en Drive
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={restaurarDeDrive}
-                  disabled={driveBusy !== null}
-                >
-                  {driveBusy === "load" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CloudDownload className="size-4" />
-                  )}
-                  Restaurar de Drive
-                </Button>
-                {!driveConectado && (
-                  <Button variant="ghost" onClick={conectarDrive} disabled={driveBusy !== null}>
-                    {driveBusy === "connect" ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : null}
-                    Conectar cuenta
-                  </Button>
+              <Button onClick={sincronizarDrive} disabled={driveBusy}>
+                {driveBusy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <GoogleIcon className="size-4" />
                 )}
-              </div>
+                Sincronizar con Google Drive
+              </Button>
             </>
           ) : (
             <p className="text-xs text-muted-foreground">

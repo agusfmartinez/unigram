@@ -139,6 +139,8 @@ interface AppState {
   seedLoaded: boolean;
   /** Código de materia a resaltar al entrar al Plan (navegación entre páginas). */
   focusMateria: string | null;
+  /** Última modificación de datos (ISO). Para sincronizar con Drive por fecha. */
+  updatedAt: string;
 
   loadSeed: () => "loaded" | "exists";
   loadSeedPlan: (plan: Carrera) => "loaded" | "exists";
@@ -180,6 +182,7 @@ export const useAppStore = create<AppState>()(
       alumno: null,
       seedLoaded: false,
       focusMateria: null,
+      updatedAt: "",
 
       setFocusMateria: (codigo) => set({ focusMateria: codigo }),
 
@@ -190,7 +193,7 @@ export const useAppStore = create<AppState>()(
       loadSeedPlan: (plan) => {
         const { carreras, historia } = get();
         if (carreras.some((c) => c.id === plan.id)) {
-          set({ carreraActivaId: plan.id, seedLoaded: true });
+          set({ carreraActivaId: plan.id, seedLoaded: true, updatedAt: new Date().toISOString() });
           return "exists";
         }
         const materias = mergeEstados(plan.materias, historia);
@@ -205,11 +208,12 @@ export const useAppStore = create<AppState>()(
           carreras: [...carreras, carrera],
           carreraActivaId: carrera.id,
           seedLoaded: true,
+          updatedAt: new Date().toISOString(),
         });
         return "loaded";
       },
 
-      setAlumno: (alumno) => set({ alumno }),
+      setAlumno: (alumno) => set({ alumno, updatedAt: new Date().toISOString() }),
 
       importPlan: (result, replace = false) => {
         const { carrera: base, alumno } = result;
@@ -239,6 +243,7 @@ export const useAppStore = create<AppState>()(
             : [...carreras, nueva],
           carreraActivaId: id,
           alumno: alumno ?? get().alumno,
+          updatedAt: new Date().toISOString(),
         });
 
         return { status: existe ? "replaced" : "imported", id };
@@ -252,10 +257,11 @@ export const useAppStore = create<AppState>()(
             const materias = mergeEstados(c.materias, entradas);
             return { ...c, materias, cursadas: prunearCursadas(materias, c.cursadas) };
           }),
+          updatedAt: new Date().toISOString(),
         }));
       },
 
-      importOferta: (list) => set({ oferta: list }),
+      importOferta: (list) => set({ oferta: list, updatedAt: new Date().toISOString() }),
 
       setCarreraActiva: (id) => set({ carreraActivaId: id }),
 
@@ -273,6 +279,7 @@ export const useAppStore = create<AppState>()(
                 : c.cursadas;
             return { ...c, materias, cursadas };
           }),
+          updatedAt: new Date().toISOString(),
         })),
 
       updateCursada: (cid, materiaId, patch) =>
@@ -288,6 +295,7 @@ export const useAppStore = create<AppState>()(
                 }
               : c,
           ),
+          updatedAt: new Date().toISOString(),
         })),
 
       updateCuatrimestre: (cid, inicio, fin) =>
@@ -297,6 +305,7 @@ export const useAppStore = create<AppState>()(
               ? { ...c, cuatrimestreInicio: inicio || undefined, cuatrimestreFin: fin || undefined }
               : c,
           ),
+          updatedAt: new Date().toISOString(),
         })),
 
       updateCorrelatividades: (cid, map) =>
@@ -304,6 +313,7 @@ export const useAppStore = create<AppState>()(
           carreras: s.carreras.map((c) =>
             c.id === cid ? { ...c, correlatividades: map } : c,
           ),
+          updatedAt: new Date().toISOString(),
         })),
 
       removeCarrera: (id) =>
@@ -313,6 +323,7 @@ export const useAppStore = create<AppState>()(
             carreras,
             carreraActivaId:
               s.carreraActivaId === id ? (carreras[0]?.id ?? null) : s.carreraActivaId,
+            updatedAt: new Date().toISOString(),
           };
         }),
 
@@ -323,12 +334,13 @@ export const useAppStore = create<AppState>()(
           historia: [],
           oferta: [],
           alumno: null,
+          updatedAt: new Date().toISOString(),
         }),
 
       exportBackup: () => {
-        const { carreras, carreraActivaId, historia, oferta, alumno } = get();
+        const { carreras, carreraActivaId, historia, oferta, alumno, updatedAt } = get();
         return JSON.stringify(
-          { version: 1, carreras, carreraActivaId, historia, oferta, alumno },
+          { version: 2, updatedAt, carreras, carreraActivaId, historia, oferta, alumno },
           null,
           2,
         );
@@ -344,6 +356,8 @@ export const useAppStore = create<AppState>()(
             historia: data.historia ?? [],
             oferta: data.oferta ?? [],
             alumno: data.alumno ?? null,
+            // Conserva la fecha del backup (para comparar en la sincronización).
+            updatedAt: data.updatedAt ?? new Date().toISOString(),
           });
           return true;
         } catch {
