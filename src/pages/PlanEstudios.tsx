@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -432,11 +433,7 @@ function EditMateriaDialog({
 
           <div className="space-y-2">
             <Label>Fecha de aprobación</Label>
-            <Input
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              placeholder="DD/MM/AAAA"
-            />
+            <DateInput value={fecha} onChange={setFecha} />
           </div>
 
           <button

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -676,12 +677,7 @@ function ExamRow({
           onChange={(e) => setNota(e.target.value)}
           placeholder="nota / resultado"
         />
-        <Input
-          className="w-32"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          placeholder="DD/MM/AAAA"
-        />
+        <DateInput className="w-40" value={fecha} onChange={setFecha} />
       </div>
     </div>
   );
@@ -714,11 +710,11 @@ function CuatrimestreModal({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Inicio</Label>
-            <Input value={inicio} onChange={(e) => setInicio(e.target.value)} placeholder="DD/MM/AAAA" />
+            <DateInput value={inicio} onChange={setInicio} />
           </div>
           <div className="space-y-2">
             <Label>Fin</Label>
-            <Input value={fin} onChange={(e) => setFin(e.target.value)} placeholder="DD/MM/AAAA" />
+            <DateInput value={fin} onChange={setFin} />
           </div>
           <p className="text-xs text-muted-foreground">
             El calendario muestra las cursadas solo entre estas fechas.
