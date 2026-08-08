@@ -10,6 +10,7 @@ export interface Materia {
   id: string; // código SIU (ej "788") o generado si no tiene
   codigo: string; // código numérico/alfanumérico del SIU
   nombre: string; // nombre limpio, sin el código entre paréntesis
+  nombreAnterior?: string; // nombre que tenía antes esta materia (opcional, editable)
   tipo: TipoMateria; // 'credito' = actividades extracurriculares (AU_, CR_, etc.)
   anio: number | null; // 1, 2, 3 (año del plan)
   periodo: string;

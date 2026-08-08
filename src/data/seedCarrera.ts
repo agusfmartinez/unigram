@@ -25,6 +25,7 @@ function mat(
   creditos: number,
   modulo: string,
   ti: boolean,
+  nombreAnterior?: string,
 ): Materia {
   return {
     id: codigo,
@@ -40,6 +41,7 @@ function mat(
     modulo,
     esPrincipal: true,
     tituloIntermedio: ti,
+    ...(nombreAnterior ? { nombreAnterior } : {}),
   };
 }
 
@@ -86,22 +88,22 @@ const materias: Materia[] = [
   mat("789", "Introducción a lógica y problemas computacionales", 1, 7, M1, true),
   mat("788", "Matemática para informática I", 1, 7, M1, true),
   mat("790", "Organización de computadoras I", 1, 7, M1, true),
-  mat("004", "Cultura y alfabetización digital en la universidad", 1, 4, M1, true),
+  mat("004", "Cultura y alfabetización digital en la universidad", 1, 4, M1, true, "Nuevos entornos y lenguajes"),
   mat("786", "Tecnología y sociedad", 1, 4, M1, false),
-  mat("SA_007", "Inglés", 1, 4, M1, true),
+  mat("SA_007", "Inglés", 1, 4, M1, true, "Inglés II"),
   mat("792", "Programación estructurada", 1, 7, M1, true),
   mat("793", "Matemática para informática II", 1, 7, M1, true),
-  mat("TI_007", "Lenguajes informáticos I", 1, 7, M1, true),
+  mat("TI_007", "Lenguajes informáticos I", 1, 7, M1, true, "Taller de lenguajes de marcado"),
   mat("795", "Organización de computadoras II", 1, 5, M1, false),
 
   // ── 2do año ──
   mat("753", "Programación con objetos I", 2, 7, M2, true),
   mat("752", "Estructuras de datos", 2, 7, M2, true),
   mat("754", "Bases de datos", 2, 7, M2, true),
-  mat("TI_013", "Matemática para informática III", 2, 5, M2, false),
+  mat("TI_013", "Matemática para informática III", 2, 5, M2, false, "Analisis matematico"),
   mat("756", "Redes de computadoras", 2, 5, M2, false),
   mat("765", "Programación con objetos II", 2, 7, M2, true),
-  mat("TI_015", "Sistemas y organizaciones", 2, 6, M2, true),
+  mat("TI_015", "Sistemas y organizaciones", 2, 6, M2, true, "Elementos de ing. Software"),
   mat("768", "Algoritmos", 2, 6, M2, false),
   mat("757", "Sistemas operativos", 2, 6, M2, false),
   { ...mat("UNAHUR_1", "Asignatura UNAHUR", 2, 0, MU, true), periodo: "" },
@@ -166,25 +168,25 @@ const materias: Materia[] = [
   // ── 3er año ──
   mat("758", "Construcción de interfaces de usuario", 3, 7, M3, true),
   mat("759", "Estrategias de persistencia", 3, 7, M3, true),
-  mat("TI_105", "Ingeniería de software I", 3, 7, M3, true),
-  mat("1401", "Álgebra lineal", 3, 5, M3, false),
-  mat("783", "Ejercicio profesional en tecnología", 3, 4, M3, false),
+  mat("TI_105", "Ingeniería de software I", 3, 7, M3, true, "Elementos de ing. Software"),
+  mat("1401", "Álgebra lineal", 3, 5, M3, false, "Matematica II"),
+  mat("783", "Ejercicio profesional en tecnología", 3, 4, M3, false, "Ejercicio Profesional"),
   mat("763", "Desarrollo de aplicaciones", 3, 6, M3, false),
   mat("762", "Laboratorio de sistemas operativos y redes", 3, 6, M3, false),
-  mat("TI_108", "Lenguajes informáticos II", 3, 5, M3, false),
+  mat("TI_108", "Lenguajes informáticos II", 3, 5, M3, false, "Programacion Funcional, Programacion con Objetos lll, Caracteristicas de lenguajes"),
   mat("778", "Arquitectura de software I", 3, 6, M3, false),
-  mat("TI_017", "Matemática para informática IV", 3, 5, M3, false),
+  mat("TI_017", "Matemática para informática IV", 3, 5, M3, false, "Matematica III"),
 
   // ── 4to año ──
   mat("TI_110", "Ingeniería de software II", 4, 5, M4, false),
   mat("774", "Probabilidad y estadística", 4, 5, M4, false),
-  mat("TI_111", "Lenguajes informáticos III", 4, 5, M4, false),
+  mat("TI_111", "Lenguajes informáticos III", 4, 5, M4, false, "Programacion concurrente"),
   mat("771", "Seguridad de la información", 4, 5, M4, false),
-  mat("TI_113", "Computabilidad y complejidad", 4, 5, M4, false),
+  mat("TI_113", "Computabilidad y complejidad", 4, 5, M4, false, "Teoria de la computacion"),
   mat("1405", "Fundamentos de redes neuronales", 4, 5, M4, false),
-  mat("TI_115", "Lenguajes informáticos IV", 4, 6, M4, false),
-  mat("TI_116", "Formalización de lenguajes y generación de código", 4, 5, M4, false),
-  mat("781", "Arquitectura de software II", 4, 5, M4, false),
+  mat("TI_115", "Lenguajes informáticos IV", 4, 6, M4, false, "Logica y programacion"),
+  mat("TI_116", "Formalización de lenguajes y generación de código", 4, 5, M4, false, "Lenguajes Formales y Automatas, Parseo y Generacion de Codigo"),
+  mat("781", "Arquitectura de software II", 4, 5, M4, false, "Ingenieria de requerimientos"),
   mat("764", "Práctica profesional supervisada", 4, 7, M4, false),
 
   // ── 5to año ──
@@ -192,7 +194,7 @@ const materias: Materia[] = [
   mat("1407", "Aprendizaje automático", 5, 6, M5, false),
   mat("779", "Sistemas distribuidos y tiempo real", 5, 5, M5, false),
   mat("782", "Arquitectura de computadoras", 5, 5, M5, false),
-  mat("TI_123", "Proyecto final", 5, 7, M5, false),
+  mat("TI_123", "Proyecto final", 5, 7, M5, false, "Tesina de grado"),
 
   // ── ACA (Actividades Curriculares Acreditables) ──
   aca("ACA_TI36", "ACA Procesamiento de imágenes y visión por computadora", 5),

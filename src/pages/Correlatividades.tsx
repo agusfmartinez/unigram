@@ -480,6 +480,12 @@ function CorrelativasEditor({
         </DialogHeader>
 
         <div className="space-y-4">
+          {targetMateria?.nombreAnterior && (
+            <p className="text-xs text-muted-foreground">
+              Nombre anterior:{" "}
+              <span className="text-foreground">{targetMateria.nombreAnterior}</span>
+            </p>
+          )}
           {!fixedTarget && (
             <Popover open={targetPickerOpen} onOpenChange={setTargetPickerOpen}>
               <PopoverTrigger asChild>

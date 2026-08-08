@@ -10,7 +10,7 @@ import type {
   PlanParseResult,
 } from "@/types";
 import { seedCorrelatividades } from "@/lib/correlatividades";
-import { SEED_CARRERA } from "@/data/seedCarrera";
+import { SEED_CARRERA, SEED_PLANES } from "@/data/seedCarrera";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -121,6 +121,29 @@ function migrarCarrera(c: Carrera): Carrera {
     return mm as Materia;
   });
   return { ...c, materias, cursadas };
+}
+
+/**
+ * Rellena `nombreAnterior` en las materias de una carrera desde la plantilla
+ * del catálogo (por id de carrera + código de materia). Solo completa las que
+ * están vacías: nunca pisa un valor cargado por el usuario. Idempotente.
+ */
+function aplicarNombresAnteriores(c: Carrera): Carrera {
+  const plan = SEED_PLANES.find((p) => p.id === c.id);
+  if (!plan) return c;
+  const mapa = new Map(
+    plan.materias.filter((m) => m.nombreAnterior).map((m) => [m.codigo, m.nombreAnterior!]),
+  );
+  if (mapa.size === 0) return c;
+  let changed = false;
+  const materias = c.materias.map((m) => {
+    if (!m.nombreAnterior && mapa.has(m.codigo)) {
+      changed = true;
+      return { ...m, nombreAnterior: mapa.get(m.codigo) };
+    }
+    return m;
+  });
+  return changed ? { ...c, materias } : c;
 }
 
 export type ImportPlanResult =
@@ -360,7 +383,7 @@ export const useAppStore = create<AppState>()(
           const data = JSON.parse(json);
           if (!Array.isArray(data.carreras)) return false;
           set({
-            carreras: (data.carreras as Carrera[]).map(migrarCarrera),
+            carreras: (data.carreras as Carrera[]).map(migrarCarrera).map(aplicarNombresAnteriores),
             carreraActivaId: data.carreraActivaId ?? data.carreras[0]?.id ?? null,
             historia: data.historia ?? [],
             oferta: data.oferta ?? [],
@@ -376,12 +399,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "unigram-state",
-      version: 2,
-      // v1→v2: mover datos de cursada de la materia a `carrera.cursadas`.
+      version: 3,
+      // v1→v2: cursada aparte del plan. v2→v3: rellenar `nombreAnterior` desde
+      // la plantilla sin perder datos del usuario.
       migrate: (persisted) => {
         const s = persisted as { carreras?: Carrera[] } | undefined;
         if (s && Array.isArray(s.carreras)) {
-          s.carreras = s.carreras.map(migrarCarrera);
+          s.carreras = s.carreras.map(migrarCarrera).map(aplicarNombresAnteriores);
         }
         return s as AppState;
       },

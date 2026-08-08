@@ -364,6 +364,7 @@ function EditMateriaDialog({
   const [notaStr, setNotaStr] = useState("");
   const [fecha, setFecha] = useState("");
   const [tituloInt, setTituloInt] = useState(false);
+  const [nombreAnterior, setNombreAnterior] = useState("");
 
   // Sincroniza el form cuando cambia la materia a editar.
   const [lastId, setLastId] = useState<string | null>(null);
@@ -373,6 +374,7 @@ function EditMateriaDialog({
     setNotaStr(materia.nota === null || materia.nota === undefined ? "" : String(materia.nota));
     setFecha(materia.fecha ?? "");
     setTituloInt(!!materia.tituloIntermedio);
+    setNombreAnterior(materia.nombreAnterior ?? "");
   }
 
   const notaEditable = estado === "aprobado";
@@ -393,18 +395,31 @@ function EditMateriaDialog({
       nota: parseNota(),
       fecha: fecha.trim() || undefined,
       tituloIntermedio: tituloInt,
+      nombreAnterior: nombreAnterior.trim() || undefined,
     });
     onClose();
   };
 
   return (
     <Dialog open={!!materia} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="break-words pr-6">{materia?.nombre}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nombre anterior</Label>
+            <Input
+              value={nombreAnterior}
+              onChange={(e) => setNombreAnterior(e.target.value)}
+              placeholder=""
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>Estado</Label>
             <Select value={estado} onValueChange={(v) => setEstado(v as EstadoMateria)}>
