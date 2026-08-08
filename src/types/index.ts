@@ -34,6 +34,7 @@ export interface Cursada {
   turno?: Turno;
   aula?: string;
   profesores?: string; // texto libre
+  link?: string; // link de clase virtual (Meet/Zoom) u otro recurso
   parcial1?: string; // resultado del 1er parcial ("8", "Ausente")
   parcial2?: string;
   recuperatorio1?: string; // opcional

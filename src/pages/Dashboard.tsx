@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Clock, ChevronDown, X, Settings } from "lucide-react";
+import { BookOpen, Clock, ChevronDown, X, Settings, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -754,6 +754,7 @@ function EnCursoModal({
   const [turno, setTurno] = useState<Turno | undefined>(undefined);
   const [aula, setAula] = useState("");
   const [profesores, setProfesores] = useState("");
+  const [link, setLink] = useState("");
   const [parcial1, setParcial1] = useState("");
   const [parcial2, setParcial2] = useState("");
   const [recuperatorio1, setRecuperatorio1] = useState("");
@@ -780,6 +781,7 @@ function EnCursoModal({
     setTurno(cursada?.turno);
     setAula(cursada?.aula ?? "");
     setProfesores(cursada?.profesores ?? "");
+    setLink(cursada?.link ?? "");
     setParcial1(cursada?.parcial1 ?? "");
     setParcial2(cursada?.parcial2 ?? "");
     setRecuperatorio1(cursada?.recuperatorio1 ?? "");
@@ -831,6 +833,7 @@ function EnCursoModal({
       turno,
       aula: aula.trim() || undefined,
       profesores: profesores.trim() || undefined,
+      link: link.trim() || undefined,
       parcial1: parcial1.trim() || undefined,
       parcial2: parcial2.trim() || undefined,
       recuperatorio1: recuperatorio1.trim() || undefined,
@@ -877,6 +880,30 @@ function EnCursoModal({
                 onChange={(e) => setProfesores(e.target.value)}
                 placeholder="Nombres, separados por coma"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Link</Label>
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  placeholder="Meet, Zoom, campus…"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={!link.trim()}
+                  title="Abrir link"
+                  onClick={() => {
+                    const url = link.trim();
+                    if (url) window.open(/^https?:\/\//i.test(url) ? url : `https://${url}`, "_blank", "noopener");
+                  }}
+                >
+                  <ExternalLink className="size-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
