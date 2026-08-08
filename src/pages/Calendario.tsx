@@ -112,23 +112,46 @@ export function Calendario() {
   const esHoy = (d: number) =>
     d === hoy.getDate() && ver.m === hoy.getMonth() && ver.y === hoy.getFullYear();
 
+  // Límites de navegación: si hay cuatrimestre configurado, se acota a esos
+  // meses; si no, hoy ± 6 meses. Evita vagar por meses vacíos.
+  const monthIdx = (y: number, m: number) => y * 12 + m;
+  const fi = parseFecha(carrera.cuatrimestreInicio);
+  const ff = parseFecha(carrera.cuatrimestreFin);
+  const baseIdx = monthIdx(hoy.getFullYear(), hoy.getMonth());
+  const minIdx = fi ? monthIdx(fi.y, fi.m - 1) : baseIdx - 6;
+  const maxIdx = ff ? monthIdx(ff.y, ff.m - 1) : baseIdx + 6;
+  const verIdx = monthIdx(ver.y, ver.m);
+  const puedeAtras = verIdx > minIdx;
+  const puedeAdelante = verIdx < maxIdx;
+
   const cambiarMes = (delta: number) =>
     setVer(({ y, m }) => {
-      const nm = m + delta;
-      return { y: y + Math.floor(nm / 12), m: ((nm % 12) + 12) % 12 };
+      const ni = monthIdx(y, m) + delta;
+      if (ni < minIdx || ni > maxIdx) return { y, m };
+      return { y: Math.floor(ni / 12), m: ((ni % 12) + 12) % 12 };
     });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon-sm" onClick={() => cambiarMes(-1)}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            disabled={!puedeAtras}
+            onClick={() => cambiarMes(-1)}
+          >
             <ChevronLeft className="size-4" />
           </Button>
           <div className="min-w-40 text-center text-sm font-semibold sm:min-w-48 sm:text-base">
             {MESES[ver.m]} {ver.y}
           </div>
-          <Button variant="outline" size="icon-sm" onClick={() => cambiarMes(1)}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            disabled={!puedeAdelante}
+            onClick={() => cambiarMes(1)}
+          >
             <ChevronRight className="size-4" />
           </Button>
         </div>
