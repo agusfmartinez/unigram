@@ -14,30 +14,22 @@ import { Correlatividades } from "@/pages/Correlatividades";
 import { Calendario } from "@/pages/Calendario";
 import { Oferta } from "@/pages/Oferta";
 import { Importar } from "@/pages/Importar";
-import { useAppStore, useHasData } from "@/store/useAppStore";
+import { useHasData } from "@/store/useAppStore";
 
 export default function App() {
   const hasData = useHasData();
-  const seedLoaded = useAppStore((s) => s.seedLoaded);
-  const loadSeed = useAppStore((s) => s.loadSeed);
-  const carrerasCount = useAppStore((s) => s.carreras.length);
   const [page, setPage] = useState<PageId>("importar");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [booted, setBooted] = useState(false);
 
-  // Al abrir por primera vez: si el store está vacío, cargar la plantilla por
-  // default (Licenciatura). Luego ir al dashboard si hay datos.
+  // Al abrir: si hay datos, ir al dashboard; si no, quedarse en Importar para
+  // que el usuario cargue su carrera. No se carga nada por defecto.
   useEffect(() => {
     if (booted) return;
-    if (!seedLoaded && carrerasCount === 0) {
-      loadSeed();
-      setPage("dashboard");
-    } else if (hasData) {
-      setPage("dashboard");
-    }
+    setPage(hasData ? "dashboard" : "importar");
     setBooted(true);
-  }, [booted, hasData, seedLoaded, carrerasCount, loadSeed]);
+  }, [booted, hasData]);
 
   // Resetear scroll al cambiar de página.
   useEffect(() => {
