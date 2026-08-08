@@ -15,6 +15,24 @@ export default defineConfig(({ command }) => ({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // Navegación: intenta red primero (HTML siempre fresco online); si no
+        // hay red, usa el caché. Evita quedar pegado a una versión vieja en el
+        // navegador. Los assets tienen hash → se cachean inmutables aparte.
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }: { request: Request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html",
+              networkTimeoutSeconds: 3,
+            },
+          },
+        ],
+      },
       manifest: {
         name: "Unigram",
         short_name: "Unigram",
