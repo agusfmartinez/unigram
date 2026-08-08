@@ -25,6 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { parsePlanEstudios } from "@/lib/parsers/parsePlanEstudios";
 import { parseHistoriaAcademica } from "@/lib/parsers/parseHistoriaAcademica";
@@ -66,6 +74,21 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     setAlumno(nombre.trim() ? { nombre: nombre.trim(), legajo: legajo.trim() } : null);
   };
 
+  // Diálogos (reemplazan window.alert / window.confirm).
+  const [confirmData, setConfirmData] = useState<{
+    msg: string;
+    resolve: (v: boolean) => void;
+    danger?: boolean;
+    okLabel?: string;
+  } | null>(null);
+  const confirmar = (msg: string, opts?: { danger?: boolean; okLabel?: string }) =>
+    new Promise<boolean>((resolve) => setConfirmData({ msg, resolve, ...opts }));
+  const cerrarConfirm = (v: boolean) => {
+    confirmData?.resolve(v);
+    setConfirmData(null);
+  };
+  const [aviso, setAviso] = useState<string | null>(null);
+
   // Agregar carrera: desplegable (planes precargados + importar XLS).
   const [agregando, setAgregando] = useState(false);
   const [showPlanImport, setShowPlanImport] = useState(false);
@@ -105,16 +128,18 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
         const result = await parsePlanEstudios(file);
         const pareceHistoria = result.carrera.materias.every((m) => m.anio == null);
         if (result.carrera.materias.length > 0 && pareceHistoria) {
-          const seguir = window.confirm(
+          const seguir = await confirmar(
             "Este archivo no parece un Plan de estudios (ninguna materia tiene año/módulo). " +
-              "¿Seguro que no es la Historia académica? Aceptar para importar igual, Cancelar para abortar.",
+              "¿Seguro que no es la Historia académica?",
+            { okLabel: "Importar igual" },
           );
           if (!seguir) return;
         }
         let res = importPlan(result);
         if (res.status === "conflict") {
-          const ok = window.confirm(
+          const ok = await confirmar(
             `La carrera "${res.nombre}" ya está importada. ¿Reemplazar sus datos?`,
+            { danger: true, okLabel: "Reemplazar" },
           );
           if (!ok) return;
           res = importPlan(result, true);
@@ -130,7 +155,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
       }
       setDone((p) => ({ ...p, [tipo]: true }));
     } catch (err) {
-      window.alert("Error al leer el archivo: " + (err as Error).message);
+      setAviso("Error al leer el archivo: " + (err as Error).message);
     } finally {
       setLoading((p) => ({ ...p, [tipo]: false }));
     }
@@ -141,7 +166,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tup-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `unigram-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -150,11 +175,15 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
   const handleBackupFile = async (file: File) => {
     const ok = importBackup(await file.text());
     if (ok) onNavigate("dashboard");
-    else window.alert("El archivo de backup no es válido.");
+    else setAviso("El archivo de backup no es válido.");
   };
 
-  const handleClear = () => {
-    if (window.confirm("¿Borrar TODOS los datos guardados? Esta acción no se puede deshacer.")) {
+  const handleClear = async () => {
+    const ok = await confirmar(
+      "¿Borrar TODOS los datos guardados? Esta acción no se puede deshacer.",
+      { danger: true, okLabel: "Borrar todo" },
+    );
+    if (ok) {
       clearAll();
       setDone({ plan: false, historia: false, oferta: false });
     }
@@ -171,7 +200,7 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
       await connectDrive();
       setDriveConectado(true);
     } catch (e) {
-      window.alert("No se pudo conectar con Google Drive: " + (e as Error).message);
+      setAviso("No se pudo conectar con Google Drive: " + (e as Error).message);
     } finally {
       setDriveBusy(null);
     }
@@ -182,9 +211,9 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
       setDriveBusy("save");
       await saveToDrive(exportBackup());
       setDriveConectado(true);
-      window.alert("Backup guardado en tu Google Drive.");
+      setAviso("Backup guardado en tu Google Drive.");
     } catch (e) {
-      window.alert("No se pudo guardar en Drive: " + (e as Error).message);
+      setAviso("No se pudo guardar en Drive: " + (e as Error).message);
     } finally {
       setDriveBusy(null);
     }
@@ -196,13 +225,13 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
       const res = await loadFromDrive();
       setDriveConectado(true);
       if (!res) {
-        window.alert("Todavía no hay ningún backup en tu Drive.");
+        setAviso("Todavía no hay ningún backup en tu Drive.");
         return;
       }
       if (importBackup(res.json)) onNavigate("dashboard");
-      else window.alert("El backup de Drive no es válido.");
+      else setAviso("El backup de Drive no es válido.");
     } catch (e) {
-      window.alert("No se pudo restaurar desde Drive: " + (e as Error).message);
+      setAviso("No se pudo restaurar desde Drive: " + (e as Error).message);
     } finally {
       setDriveBusy(null);
     }
@@ -432,6 +461,44 @@ export function Importar({ onNavigate }: { onNavigate: (p: PageId) => void }) {
           </Button>
         )}
       </div>
+
+      {/* Diálogo de confirmación */}
+      <Dialog open={confirmData != null} onOpenChange={(o) => !o && cerrarConfirm(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirmar</DialogTitle>
+            <DialogDescription className="whitespace-pre-line pt-1">
+              {confirmData?.msg}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => cerrarConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={confirmData?.danger ? "destructive" : "default"}
+              onClick={() => cerrarConfirm(true)}
+            >
+              {confirmData?.okLabel ?? "Aceptar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de aviso */}
+      <Dialog open={aviso != null} onOpenChange={(o) => !o && setAviso(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Aviso</DialogTitle>
+            <DialogDescription className="whitespace-pre-line pt-1 text-foreground">
+              {aviso}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setAviso(null)}>Entendido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Clock, ChevronDown, X } from "lucide-react";
+import { BookOpen, Clock, ChevronDown, X, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) 
   const alumno = useAppStore((s) => s.alumno);
   const setFocusMateria = useAppStore((s) => s.setFocusMateria);
   const [editCursada, setEditCursada] = useState<Materia | null>(null);
+  const [cuatriOpen, setCuatriOpen] = useState(false);
 
   // Ir al Plan de Estudios y resaltar la materia.
   const irAPlan = (codigo: string) => {
@@ -225,10 +226,18 @@ export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) 
 
       {stats.enCurso.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <BookOpen className="size-4" /> Materias en curso este cuatrimestre
             </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setCuatriOpen(true)}
+              title="Configurar fechas del cuatrimestre"
+            >
+              <Settings className="size-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -340,6 +349,10 @@ export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) 
           cursada={editCursada ? cursadas[editCursada.id] : undefined}
           onClose={() => setEditCursada(null)}
         />
+      )}
+
+      {carrera && cuatriOpen && (
+        <CuatrimestreModal carrera={carrera} onClose={() => setCuatriOpen(false)} />
       )}
 
       {stats.pendientes.length > 0 && (
@@ -671,6 +684,54 @@ function ExamRow({
         />
       </div>
     </div>
+  );
+}
+
+// ─── Modal de fechas del cuatrimestre ────────────────────────────────────────
+
+function CuatrimestreModal({
+  carrera,
+  onClose,
+}: {
+  carrera: { id: string; cuatrimestreInicio?: string; cuatrimestreFin?: string };
+  onClose: () => void;
+}) {
+  const updateCuatrimestre = useAppStore((s) => s.updateCuatrimestre);
+  const [inicio, setInicio] = useState(carrera.cuatrimestreInicio ?? "");
+  const [fin, setFin] = useState(carrera.cuatrimestreFin ?? "");
+
+  const save = () => {
+    updateCuatrimestre(carrera.id, inicio.trim(), fin.trim());
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Cuatrimestre en curso</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Inicio</Label>
+            <Input value={inicio} onChange={(e) => setInicio(e.target.value)} placeholder="DD/MM/AAAA" />
+          </div>
+          <div className="space-y-2">
+            <Label>Fin</Label>
+            <Input value={fin} onChange={(e) => setFin(e.target.value)} placeholder="DD/MM/AAAA" />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            El calendario muestra las cursadas solo entre estas fechas.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={save}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

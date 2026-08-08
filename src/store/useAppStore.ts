@@ -158,6 +158,18 @@ interface AppState {
   importBackup: (json: string) => boolean;
 }
 
+// Rename de clave de storage (tup-tracker-state → unigram-state) sin perder datos.
+try {
+  if (typeof localStorage !== "undefined") {
+    const viejo = localStorage.getItem("tup-tracker-state");
+    if (viejo && !localStorage.getItem("unigram-state")) {
+      localStorage.setItem("unigram-state", viejo);
+    }
+  }
+} catch {
+  /* storage no disponible */
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -340,7 +352,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: "tup-tracker-state",
+      name: "unigram-state",
       version: 2,
       // v1→v2: mover datos de cursada de la materia a `carrera.cursadas`.
       migrate: (persisted) => {

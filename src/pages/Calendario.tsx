@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, GraduationCap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
-import { useActiveCarrera, useAppStore } from "@/store/useAppStore";
+import { useActiveCarrera } from "@/store/useAppStore";
 import type { Materia } from "@/types";
 
 const MESES = [
@@ -40,20 +38,14 @@ function fechaANum(s?: string): number | null {
 
 export function Calendario() {
   const carrera = useActiveCarrera();
-  const updateCuatrimestre = useAppStore((s) => s.updateCuatrimestre);
   const hoy = new Date();
   const [ver, setVer] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() }); // m: 0-11
 
   const materias = carrera?.materias ?? [];
   const cursadas = carrera?.cursadas ?? {};
 
-  // Rango del cuatrimestre (acota las cursadas del calendario).
-  const [cuatriInicio, setCuatriInicio] = useState("");
-  const [cuatriFin, setCuatriFin] = useState("");
-  useEffect(() => {
-    setCuatriInicio(carrera?.cuatrimestreInicio ?? "");
-    setCuatriFin(carrera?.cuatrimestreFin ?? "");
-  }, [carrera?.cuatrimestreInicio, carrera?.cuatrimestreFin]);
+  // Rango del cuatrimestre (acota las cursadas del calendario). Se configura
+  // desde el Dashboard (card de materias en curso).
   const rangoInicio = fechaANum(carrera?.cuatrimestreInicio);
   const rangoFin = fechaANum(carrera?.cuatrimestreFin);
   const dentroDelCuatri = (y: number, m: number, d: number) => {
@@ -148,42 +140,6 @@ export function Calendario() {
           Hoy
         </Button>
       </div>
-
-      {/* Cuatrimestre en curso: acota las cursadas del calendario */}
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 py-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Inicio del cuatrimestre</Label>
-            <Input
-              className="w-36"
-              value={cuatriInicio}
-              onChange={(e) => setCuatriInicio(e.target.value)}
-              placeholder="DD/MM/AAAA"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Fin del cuatrimestre</Label>
-            <Input
-              className="w-36"
-              value={cuatriFin}
-              onChange={(e) => setCuatriFin(e.target.value)}
-              placeholder="DD/MM/AAAA"
-            />
-          </div>
-          <Button
-            variant="outline"
-            onClick={() =>
-              carrera && updateCuatrimestre(carrera.id, cuatriInicio.trim(), cuatriFin.trim())
-            }
-          >
-            Guardar
-          </Button>
-          <p className="w-full text-xs text-muted-foreground">
-            Las cursadas se muestran solo entre estas fechas. Sin rango, se muestran en todos los
-            meses.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Referencias */}
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
