@@ -14,6 +14,7 @@ import { Correlatividades } from "@/pages/Correlatividades";
 import { Calendario } from "@/pages/Calendario";
 import { Oferta } from "@/pages/Oferta";
 import { Importar } from "@/pages/Importar";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { useHasData } from "@/store/useAppStore";
 
 export default function App() {
@@ -66,6 +67,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen">
+      <InstallPrompt />
       {/* Desktop sidebar */}
       <aside
         className={cn(
