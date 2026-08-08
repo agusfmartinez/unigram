@@ -4,11 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath, URL } from "node:url";
 
-// GitHub Pages sirve el sitio bajo /<repo>/. En dev usamos "/".
+// GitHub Pages sirve el sitio bajo /<repo>/. Vercel y dev usan la raíz "/".
 const BASE = "/unigram/";
 
 export default defineConfig(({ command }) => ({
-  base: command === "build" ? BASE : "/",
+  base: command === "build" && !process.env.VERCEL ? BASE : "/",
   plugins: [
     react(),
     tailwindcss(),
