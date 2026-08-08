@@ -193,7 +193,7 @@ export const useAppStore = create<AppState>()(
       loadSeedPlan: (plan) => {
         const { carreras, historia } = get();
         if (carreras.some((c) => c.id === plan.id)) {
-          set({ carreraActivaId: plan.id, seedLoaded: true, updatedAt: new Date().toISOString() });
+          set({ carreraActivaId: plan.id, seedLoaded: true });
           return "exists";
         }
         const materias = mergeEstados(plan.materias, historia);
@@ -204,11 +204,13 @@ export const useAppStore = create<AppState>()(
           materias,
           cursadas: prunearCursadas(materias, plan.cursadas ?? {}),
         };
+        // Cargar la plantilla NO cuenta como cambio de datos del usuario: no toca
+        // `updatedAt`. Así un dispositivo recién abierto (solo seed) no "gana" la
+        // sincronización y trae el backup real de Drive.
         set({
           carreras: [...carreras, carrera],
           carreraActivaId: carrera.id,
           seedLoaded: true,
-          updatedAt: new Date().toISOString(),
         });
         return "loaded";
       },
