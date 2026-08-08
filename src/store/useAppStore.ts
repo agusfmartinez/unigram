@@ -161,11 +161,15 @@ interface AppState {
 }
 
 // Rename de clave de storage (tup-tracker-state → unigram-state) sin perder datos.
+// Copia la clave vieja una única vez y luego la elimina para no dejar basura.
 try {
   if (typeof localStorage !== "undefined") {
     const viejo = localStorage.getItem("tup-tracker-state");
-    if (viejo && !localStorage.getItem("unigram-state")) {
-      localStorage.setItem("unigram-state", viejo);
+    if (viejo) {
+      if (!localStorage.getItem("unigram-state")) {
+        localStorage.setItem("unigram-state", viejo);
+      }
+      localStorage.removeItem("tup-tracker-state");
     }
   }
 } catch {
