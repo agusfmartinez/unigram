@@ -252,6 +252,10 @@ export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) 
         </Card>
       )}
 
+      {carrera && (
+        <ProximosEventos materias={stats.enCurso} cursadas={cursadas} carrera={carrera} />
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <AvanceCard
           titulo="Avance Licenciatura"
@@ -396,6 +400,109 @@ export function Dashboard({ onNavigate }: { onNavigate?: (p: "plan") => void }) 
         </Card>
       )}
     </div>
+  );
+}
+
+// ─── Próximos eventos ────────────────────────────────────────────────────────
+
+const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+/** "DD/MM/YYYY" → Date (medianoche local) o null. */
+function parseFechaDate(s?: string): Date | null {
+  if (!s) return null;
+  const p = s.split("/").map((x) => parseInt(x, 10));
+  if (p.length !== 3 || p.some(Number.isNaN)) return null;
+  return new Date(p[2] < 100 ? 2000 + p[2] : p[2], p[1] - 1, p[0]);
+}
+
+function ProximosEventos({
+  materias,
+  cursadas,
+  carrera,
+}: {
+  materias: Materia[];
+  cursadas: Record<string, Cursada>;
+  carrera: { cuatrimestreInicio?: string; cuatrimestreFin?: string };
+}) {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const DIA_MS = 86_400_000;
+
+  const inicio = parseFechaDate(carrera.cuatrimestreInicio);
+  const fin = parseFechaDate(carrera.cuatrimestreFin);
+  const dentroCuatri = (d: Date) => (!inicio || d >= inicio) && (!fin || d <= fin);
+
+  type Ev = { dias: number; texto: string; tipo: "examen" | "cursada" };
+  const eventos: Ev[] = [];
+
+  for (const m of materias) {
+    const c = cursadas[m.id];
+    if (!c) continue;
+
+    // Cursada de hoy (dentro del cuatrimestre).
+    if (c.dias?.includes(DIAS_SEMANA[hoy.getDay()]) && dentroCuatri(hoy)) {
+      eventos.push({ dias: 0, texto: `Hoy cursás ${m.nombre}`, tipo: "cursada" });
+    }
+
+    // Exámenes futuros.
+    const exs: [string | undefined, string][] = [
+      [c.fechaParcial1, "Parcial 1"],
+      [c.fechaParcial2, "Parcial 2"],
+      [c.fechaRecuperatorio1, "Recuperatorio 1"],
+      [c.fechaRecuperatorio2, "Recuperatorio 2"],
+      [c.fechaExamen, "Final"],
+    ];
+    for (const [f, label] of exs) {
+      const dt = parseFechaDate(f);
+      if (!dt) continue;
+      const dias = Math.round((dt.getTime() - hoy.getTime()) / DIA_MS);
+      if (dias >= 0) eventos.push({ dias, texto: `${label} · ${m.nombre}`, tipo: "examen" });
+    }
+  }
+
+  eventos.sort((a, b) => a.dias - b.dias);
+  const lista = eventos.slice(0, 8);
+
+  if (lista.length === 0) return null;
+
+  const cuando = (dias: number) =>
+    dias === 0 ? "Hoy" : dias === 1 ? "Mañana" : `En ${dias} días`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Clock className="size-4" /> Próximos eventos
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {lista.map((ev, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className="inline-block size-2 shrink-0 rounded-full"
+                style={{ background: ev.tipo === "examen" ? "var(--warning)" : "var(--en-curso)" }}
+              />
+              <span className="break-words">{ev.texto}</span>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0",
+                ev.dias === 0
+                  ? "bg-en-curso/15 text-en-curso border-en-curso/20"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
+              {cuando(ev.dias)}
+            </Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

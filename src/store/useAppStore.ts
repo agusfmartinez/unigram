@@ -150,6 +150,7 @@ interface AppState {
   setCarreraActiva: (id: string) => void;
   updateMateria: (carreraId: string, materiaId: string, patch: Partial<Materia>) => void;
   updateCursada: (carreraId: string, materiaId: string, patch: Partial<Cursada>) => void;
+  updateCuatrimestre: (carreraId: string, inicio?: string, fin?: string) => void;
   updateCorrelatividades: (carreraId: string, map: Record<string, string[]>) => void;
   removeCarrera: (id: string) => void;
   clearAll: () => void;
@@ -273,6 +274,15 @@ export const useAppStore = create<AppState>()(
                     [materiaId]: { ...c.cursadas[materiaId], ...patch },
                   },
                 }
+              : c,
+          ),
+        })),
+
+      updateCuatrimestre: (cid, inicio, fin) =>
+        set((s) => ({
+          carreras: s.carreras.map((c) =>
+            c.id === cid
+              ? { ...c, cuatrimestreInicio: inicio || undefined, cuatrimestreFin: fin || undefined }
               : c,
           ),
         })),

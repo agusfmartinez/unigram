@@ -90,6 +90,9 @@ export interface Carrera {
   correlatividades: Record<string, string[]>;
   /** Datos de cursada por id de materia (solo las que están en curso). */
   cursadas: Record<string, Cursada>;
+  /** Cuatrimestre en curso (DD/MM/YYYY): acota las cursadas en el calendario. */
+  cuatrimestreInicio?: string;
+  cuatrimestreFin?: string;
   importadaEn: string; // ISO date string
 }
 

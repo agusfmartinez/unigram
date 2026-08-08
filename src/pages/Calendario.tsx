@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, GraduationCap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
-import { useActiveCarrera } from "@/store/useAppStore";
+import { useActiveCarrera, useAppStore } from "@/store/useAppStore";
 import type { Materia } from "@/types";
 
 const MESES = [
@@ -30,13 +32,36 @@ function parseFecha(s?: string): { d: number; m: number; y: number } | null {
 /** getDay() (0=Dom) → columna de la grilla que empieza en Lunes (0=Lun..6=Dom). */
 const colLunes = (getDay: number) => (getDay + 6) % 7;
 
+/** "DD/MM/YYYY" → clave comparable YYYYMMDD, o null. */
+function fechaANum(s?: string): number | null {
+  const f = parseFecha(s);
+  return f ? f.y * 10000 + f.m * 100 + f.d : null;
+}
+
 export function Calendario() {
   const carrera = useActiveCarrera();
+  const updateCuatrimestre = useAppStore((s) => s.updateCuatrimestre);
   const hoy = new Date();
   const [ver, setVer] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() }); // m: 0-11
 
   const materias = carrera?.materias ?? [];
   const cursadas = carrera?.cursadas ?? {};
+
+  // Rango del cuatrimestre (acota las cursadas del calendario).
+  const [cuatriInicio, setCuatriInicio] = useState("");
+  const [cuatriFin, setCuatriFin] = useState("");
+  useEffect(() => {
+    setCuatriInicio(carrera?.cuatrimestreInicio ?? "");
+    setCuatriFin(carrera?.cuatrimestreFin ?? "");
+  }, [carrera?.cuatrimestreInicio, carrera?.cuatrimestreFin]);
+  const rangoInicio = fechaANum(carrera?.cuatrimestreInicio);
+  const rangoFin = fechaANum(carrera?.cuatrimestreFin);
+  const dentroDelCuatri = (y: number, m: number, d: number) => {
+    const n = y * 10000 + (m + 1) * 100 + d;
+    if (rangoInicio != null && n < rangoInicio) return false;
+    if (rangoFin != null && n > rangoFin) return false;
+    return true;
+  };
 
   // Eventos con fecha (parciales + examen final) en el mes visible.
   const eventos = useMemo(() => {
@@ -124,6 +149,42 @@ export function Calendario() {
         </Button>
       </div>
 
+      {/* Cuatrimestre en curso: acota las cursadas del calendario */}
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 py-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Inicio del cuatrimestre</Label>
+            <Input
+              className="w-36"
+              value={cuatriInicio}
+              onChange={(e) => setCuatriInicio(e.target.value)}
+              placeholder="DD/MM/AAAA"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Fin del cuatrimestre</Label>
+            <Input
+              className="w-36"
+              value={cuatriFin}
+              onChange={(e) => setCuatriFin(e.target.value)}
+              placeholder="DD/MM/AAAA"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() =>
+              carrera && updateCuatrimestre(carrera.id, cuatriInicio.trim(), cuatriFin.trim())
+            }
+          >
+            Guardar
+          </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            Las cursadas se muestran solo entre estas fechas. Sin rango, se muestran en todos los
+            meses.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Referencias */}
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
@@ -149,7 +210,8 @@ export function Calendario() {
               if (d === null) return <div key={i} className="min-h-20 border-b border-r" />;
               const getDay = new Date(ver.y, ver.m, d).getDay();
               const evs = eventos[d] ?? [];
-              const curs = cursadasPorDow[getDay] ?? [];
+              // Cursadas solo dentro del cuatrimestre (si hay rango cargado).
+              const curs = dentroDelCuatri(ver.y, ver.m, d) ? cursadasPorDow[getDay] ?? [] : [];
               return (
                 <div
                   key={i}
