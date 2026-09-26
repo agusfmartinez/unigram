@@ -1,6 +1,7 @@
 # uniGram
 
 Web app para que estudiantes universitarios hagan seguimiento de su carrera académica, importando datos directamente desde el **SIU Guaraní** (sistema de gestión académica usado en universidades argentinas).
+![alt text](public/img/unigram.webp)
 
 Sin backend: todo vive en el cliente (`localStorage`). No hay login ni cuenta.
 
